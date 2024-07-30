@@ -59,7 +59,7 @@ namespace BlogAPI.Controllers
             return post;
         }
 
-        [HttpGet("getByTag{TagId}")]
+        [HttpGet("getByTag")]
         public async Task<ActionResult<List<Post>>> GetPostByTag(long id)
         {
             if (_context.Posts == null)
@@ -68,8 +68,11 @@ namespace BlogAPI.Controllers
             }
 
 
-            var posts = await _context.TagPosts.Where(tp => tp.TagId == id).Select(p => p.Post).Include(p => p.Authors).Include(p => p.TagPosts).ThenInclude(t => t.Tag).ToListAsync();
-
+            var posts = await _context.TagPosts
+            .Where(tp => tp.TagId == id)
+            .Select(tp => tp.Post)  // This projects to the Post entity
+            
+            .ToListAsync();
             if (posts == null)
             {
                 return NotFound();
