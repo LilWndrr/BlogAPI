@@ -19,8 +19,8 @@ namespace BlogAPI.Model
 		public long? CommentId { get; set; }
 		public long? PostId { get; set; }
 
-		[JsonIgnore]
-		[ForeignKey(nameof(UserID))]
+        [JsonIgnore]
+        [ForeignKey(nameof(UserID))]
 		public AppUser? User  { get; set; }
         [JsonIgnore]
         [ForeignKey(nameof(PostId))]
