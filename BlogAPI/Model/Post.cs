@@ -11,6 +11,8 @@ namespace BlogAPI.Model
 		public string Title { get; set; } = "";
 		public string HtmlContent { get; set; } = "";
 
+		public bool isDeleted { get; set; }
+		public bool isBanned { get; set; }
 		public DateTime PublicationDate { get; set; } = DateTime.Now;
 		public DateTime? UpdatedDate { get; set; }
 		public long LikeCount { get; set; }

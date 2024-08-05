@@ -1,13 +1,9 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using BlogAPI.Data;
 using BlogAPI.Model;
 using System.Security.Claims;
+using BlogAPI.DTOs;
+using BlogAPI.Services.Concrete;
+using BlogAPI.Services.Interfaces;
 
 namespace BlogAPI.Controllers
 {
@@ -15,133 +11,73 @@ namespace BlogAPI.Controllers
     [ApiController]
     public class PostLikesController : ControllerBase
     {
-        private readonly ApplicationContext _context;
+       
+        private readonly IPostLikeService _postLikeService;
 
-        public PostLikesController(ApplicationContext context)
+
+        public PostLikesController(IPostLikeService postLikeService)
         {
-            _context = context;
+            
+            _postLikeService = postLikeService;
         }
 
-        // GET: api/PostLikes
-        [HttpGet]
-        public async Task<ActionResult<IEnumerable<PostLike>>> GetPostLikes()
-        {
-          if (_context.PostLikes == null)
-          {
-              return NotFound();
-          }
-            return await _context.PostLikes.ToListAsync();
-        }
-
+      
         // GET: api/PostLikes/5
-        [HttpGet("{id}")]
-        public async Task<ActionResult<PostLike>> GetPostLike(string id)
+        [HttpGet("getByPost")]
+        public async Task<ActionResult<IEnumerable<PostLike>>> GetPostLikeByPostId(long id)
         {
-          if (_context.PostLikes == null)
-          {
-              return NotFound();
-          }
-            var postLike = await _context.PostLikes.FindAsync(id);
-
-            if (postLike == null)
-            {
-                return NotFound();
-            }
-
-            return postLike;
-        }
-
-        // PUT: api/PostLikes/5
-        // To protect from overposting attacks, see https://go.microsoft.com/fwlink/?linkid=2123754
-        [HttpPut("{id}")]
-        public async Task<IActionResult> PutPostLike(string id, PostLike postLike)
-        {
-            if (id != postLike.UserID)
+            var postLikes = await _postLikeService.GetPostLikesByPostIdAsync(id);
+            if (postLikes == null)
             {
                 return BadRequest();
             }
 
-            _context.Entry(postLike).State = EntityState.Modified;
-
-            try
-            {
-                await _context.SaveChangesAsync();
-            }
-            catch (DbUpdateConcurrencyException)
-            {
-                if (!PostLikeExists(id))
-                {
-                    return NotFound();
-                }
-                else
-                {
-                    throw;
-                }
-            }
-
-            return NoContent();
+            return Ok(postLikes);
         }
+        [HttpGet("getByUser")]
+        public async Task<ActionResult<IEnumerable<PostLike>>> GetPostLikeByUserId(string id)
+        {
+            var postLikes = await _postLikeService.GetUserPostLikesAsync(id);
+            if (postLikes == null)
+            {
+                return BadRequest();
+            }
+
+            return Ok(postLikes);
+        }
+
+       
 
         // POST: api/PostLikes
         // To protect from overposting attacks, see https://go.microsoft.com/fwlink/?linkid=2123754
         [HttpPost]
-        public async Task<ActionResult<PostLike>> PostPostLike(PostLike postLike)
+        public async Task<ActionResult> PostPostLike([FromBody] PostLikeCreateDto postLikeCreateDto)
         {
-          if (_context.PostLikes == null)
-          {
-              return Problem("Entity set 'ApplicationContext.PostLikes'  is null.");
-          }
-            postLike.UserID = User.FindFirst(ClaimTypes.NameIdentifier).Value;
-            _context.PostLikes.Add(postLike);
-            var post=_context.Posts.FirstOrDefault(p=>p.Id==postLike.PostId);
-            post.LikeCount++;
-            _context.Posts.Update(post);
-
-            try
+          
+            postLikeCreateDto.UserId = User.FindFirst(ClaimTypes.NameIdentifier).Value;
+            var result = await _postLikeService.CreatePostLikeAsync(postLikeCreateDto);
+            if (!result)
             {
-                await _context.SaveChangesAsync();
-            }
-            catch (DbUpdateException)
-            {
-                if (PostLikeExists(postLike.UserID))
-                {
-                    return Conflict();
-                }
-                else
-                {
-                    throw;
-                }
+                return BadRequest();
             }
 
-            return CreatedAtAction("GetPostLike", new { id = postLike.UserID }, postLike);
+            return Ok();
         }
 
         // DELETE: api/PostLikes/5
         [HttpDelete]
-        public async Task<IActionResult> DeletePostLike(long postID)
+        public async Task<IActionResult> DeletePostLike(long postId)
         {
-            if (_context.PostLikes == null)
-            {
-                return NotFound();
-            }
+            
             var userId= User.FindFirst(ClaimTypes.NameIdentifier).Value;
-            var postLike = await _context.PostLikes.Where(pl=>pl.UserID==userId&&pl.PostId==postID).FirstOrDefaultAsync();
-            if (postLike == null)
+            var result = await _postLikeService.DeletePostLikeAsync(postId, userId);
+            if (!result)
             {
-                return NotFound();
+                return BadRequest();
             }
-            var post = _context.Posts.FirstOrDefault(p => p.Id == postLike.PostId);
-            post.LikeCount--;
-            _context.Posts.Update(post);
-            _context.PostLikes.Remove(postLike);
-            await _context.SaveChangesAsync();
-
-            return NoContent();
+            return Ok();
         }
 
-        private bool PostLikeExists(string id)
-        {
-            return (_context.PostLikes?.Any(e => e.UserID == id)).GetValueOrDefault();
-        }
+      
     }
 }

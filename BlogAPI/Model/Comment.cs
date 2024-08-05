@@ -12,6 +12,8 @@ namespace BlogAPI.Model
 		public string Content { get; set; } = "";
 		public int LikesCount { get; set; }
 		public DateTime CreatedDateTime { get; set; } = DateTime.Now;
+		public DateTime? UpdateDateTime { get; set; } 
+		public bool IsDeleted { get; set; }
 		public int  CommentCount { get; set; }
 
 
@@ -31,6 +33,7 @@ namespace BlogAPI.Model
 
 
 
+		public List<CommentLike>? CommentLikes { get; set; }
 
 		public List<Comment>? SubComments { get; set; }
 

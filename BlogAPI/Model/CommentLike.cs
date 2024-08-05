@@ -7,7 +7,8 @@ namespace BlogAPI.Model
 	{
 		public string UserID { get; set; } = "";
 		public long CommentId  { get; set; }
-
+		public DateTime DateCreated { get; set; }
+	
 		[ForeignKey(nameof(UserID))]
 		public AppUser? User { get; set; }
 		[ForeignKey(nameof(CommentId))]

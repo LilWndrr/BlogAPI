@@ -12,12 +12,14 @@ namespace BlogAPI.Model
         public string? MiddleName { get; set; }
         public string? FamilyName { get; set; }
 
-
+        public bool IsDeleted { get; set; }
+        public bool IsBanned { get; set; }
         
         public bool Gender { get; set; }
         public DateTime BirthDate { get; set; }
         public DateTime RegisterDate { get; set; }
-        public byte Status { get; set; }
+        public int NumOfPosts { get; set; } 
+       
         [NotMapped]
         public string? Password { get; set; }
         [NotMapped]

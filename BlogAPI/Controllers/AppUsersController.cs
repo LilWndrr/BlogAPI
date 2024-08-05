@@ -1,16 +1,7 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using BlogAPI.Data;
-using BlogAPI.Model;
-using Microsoft.AspNetCore.Identity;
-using System.IdentityModel.Tokens.Jwt;
 using Microsoft.AspNetCore.Authorization;
-using System.Diagnostics.Metrics;
+using BlogAPI.DTOs;
+using BlogAPI.Services.Interfaces;
 
 namespace BlogAPI.Controllers
 {
@@ -18,115 +9,106 @@ namespace BlogAPI.Controllers
     [ApiController]
     public class AppUsersController : ControllerBase
     {
-        private readonly ApplicationContext _context;
-        private readonly UserManager<AppUser> _userManager;
-        private readonly SignInManager<AppUser> _signInManager;
+        
+        private readonly IUserService _userService;
 
-        public AppUsersController(ApplicationContext context, UserManager<AppUser> userManager, SignInManager<AppUser> signInManager)
+        public AppUsersController(IUserService userService)
         {
-            _context = context;
-            _userManager = userManager;
-            _signInManager = signInManager;
+            
+            _userService = userService;
         }
 
         // GET: api/AppUsers
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<AppUser>>> GetUsers()
+        public async Task<ActionResult<IEnumerable<AppUserGetDto>>> GetUsers()
         {
-          if (_context.Users == null)
-          {
-              return NotFound();
-          }
-            return await _context.Users.ToListAsync();
+            var users = await _userService.GetUsersAsync();
+            if (users == null)
+            {
+                return NotFound();
+            }
+            return  Ok(users);
         }
         
 
         // GET: api/AppUsers/5
         [HttpGet("{id}")]
-        public async Task<ActionResult<AppUser>> GetAppUser(string id)
+        public async Task<ActionResult<AppUserGetDto>> GetAppUser(string id)
         {
-          if (_context.Users == null)
-          {
-              return NotFound();
-          }
-            var appUser = await _context.Users.FindAsync(id);
-
+          
+            var appUser = await _userService.GetAppUserAsync(id);
             if (appUser == null)
             {
                 return NotFound();
             }
+           
 
-            return appUser;
+            return Ok(appUser);
         }
 
         // PUT: api/AppUsers/5
-        // To protect from overposting attacks, see https://go.microsoft.com/fwlink/?linkid=2123754
-        [HttpPut("{id}")]
-        public async Task<IActionResult> PutAppUser(string id, AppUser appUser, string? CurrentPassword)
+        // To protect from over posting attacks, see https://go.microsoft.com/fwlink/?linkid=2123754
+        [HttpPut]
+        public async Task<ActionResult<AppUserGetDto>> PutAppUser(string id, [FromBody] AppUserCreateDto appUser)
         {
-            if (id != appUser.Id)
+            var user = await _userService.PutAppUserAsync(id, appUser);
+            if (user == null)
             {
                 return BadRequest();
             }
-            AppUser appUser1= _userManager.FindByIdAsync(id).Result;
-
-           
-            appUser1.BirthDate = appUser.BirthDate;
-            appUser1.Email = appUser.Email;
-            appUser1.FamilyName = appUser.FamilyName;
-            appUser1.Gender = appUser.Gender;
-            appUser1.MiddleName = appUser.MiddleName;
-            appUser1.FamilyName = appUser.FamilyName;
-            appUser1.Status = appUser.Status;
-            appUser1.Password = appUser.Password;
-            await _userManager.UpdateAsync(appUser1);
-            if (CurrentPassword != null)
-            {
-                _userManager.ChangePasswordAsync(appUser1, CurrentPassword, appUser.Password).Wait();
-            }
-            return NoContent();
+            return Ok(user);
         }
 
         // POST: api/AppUsers
-        // To protect from overposting attacks, see https://go.microsoft.com/fwlink/?linkid=2123754
+        // To protect from over posting attacks, see https://go.microsoft.com/fwlink/?linkid=2123754
         [HttpPost]
-        public  ActionResult<AppUser> PostAppUser(AppUser appUser)
+        public async  Task<ActionResult<AppUserGetDto>> PostAppUser([FromBody] AppUserCreateDto appUser)
         {
-          if (_context.Users == null)
-          {
-              return Problem("Entity set 'ApplicationContext.Users'  is null.");
-          }
 
-            var result= _userManager.CreateAsync(appUser, appUser.Password).Result;
-            if (result.Succeeded)
+            var user = await _userService.PostAppUserAsync(appUser);
+            if (user == null)
             {
-                return Ok("Posting saccessful");
+                return BadRequest();
             }
             
-           
-            
 
-            return CreatedAtAction("GetAppUser", new { id = appUser.Id }, appUser);
+            return Ok(user);
         }
 
+        [HttpGet("emailConfirmation")]
+        public async Task<ActionResult> EmailConfirmation([FromQuery] string email, [FromQuery] string token)
+        {
+            var result = await _userService.ConfirmEmailAsync(email, token);
+            if (!result)
+            {
+                return BadRequest();
+            }
+            return Ok();
+        }
+        
+        [HttpPost("banUser")]
+        public async Task<ActionResult> BanUser(string id)
+        {
+            var result = await _userService.BanUserAsync(id);
+            if (!result)
+            {
+                return NotFound();
+            }
+
+            return Ok();
+        }
+        
         // DELETE: api/AppUsers/5
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteAppUser(string id)
         {
-            if (_context.Users == null)
-            {
-                return NotFound();
-            }
-            var appUser = await _context.Users.FindAsync(id);
-            if (appUser == null)
+            var result = await _userService.DeleteAppUserAsync(id);
+            if (!result)
             {
                 return NotFound();
             }
 
-            _context.Users.Remove(appUser);
-            await _context.SaveChangesAsync();
-
-            return NoContent();
+            return Ok();
         }
 
         [HttpPost("Login")]
@@ -137,22 +119,14 @@ namespace BlogAPI.Controllers
                 return BadRequest("Username and password are required.");
             }
 
-            var appUser = await _userManager.FindByNameAsync(userName);
-
-            if (appUser == null)
+            var result = await _userService.LoginAsync(userName, password);
+            if (!result)
             {
                 return Unauthorized("Invalid username or password.");
             }
 
-            var signInResult = await _signInManager.PasswordSignInAsync(appUser,password,false,false);
+            return Ok("Login successful");
 
-            if (signInResult.Succeeded)
-            {
-                
-                return Ok();
-            }
-
-            return Unauthorized("Invalid username or password.");
         }
 
         [Authorize]
@@ -161,13 +135,41 @@ namespace BlogAPI.Controllers
         {
 
 
-            await _signInManager.SignOutAsync();
+            await _userService.LogoutAsync();
             return Ok("Logout successful.");
         }
-
-        private bool AppUserExists(string id)
+        [HttpPost("forgetPassword")]
+        public async Task<ActionResult> ForgetPassword(string email)
         {
-            return (_context.Users?.Any(e => e.Id == id)).GetValueOrDefault();
+            var result = await _userService.ForgetPasswordAsync(email);
+            if (!result)
+            {
+                return BadRequest("User was not found");
+            }
+            return Ok("Email was sent");
         }
+        [HttpGet("ResetPassword")]
+        public async Task<ActionResult<ResetPasswordForm>> ResetPasswordAbc([FromQuery]string email,[FromQuery] string token)
+        {
+            var restPasswordForm =await _userService.ResetPassswordAbc(email, token);
+            if (restPasswordForm==null)
+            {
+                return BadRequest("UserName or Token is not valid");
+            }
+
+            return Ok(restPasswordForm);
+        }
+        [HttpPost("ResetPasswordImp")]
+        public async Task<ActionResult> ResetPassword([FromBody]ResetPasswordForm resetPasswordForm)
+        {
+            var result = await _userService.ResetPasswordAsync(resetPasswordForm);
+            if (!result)
+            {
+                return BadRequest("UserName or Token is not valid");
+            }
+
+            return Ok("Password reset successful");
+        }
+       
     }
 }
