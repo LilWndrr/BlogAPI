@@ -127,7 +127,13 @@ namespace BlogAPI.Controllers
             
             comment.UserID = User.FindFirst(ClaimTypes.NameIdentifier).Value;
             _context.Comments.Add(comment);
-           
+            if (comment.CommentId != null)
+            {
+               var parentComment= _context.Comments.FirstOrDefault(c => c.Id == comment.CommentId);
+                comment.PostId = parentComment.PostId;
+
+
+            }
                 var post=_context.Posts.FirstOrDefault(p => p.Id == comment.PostId);
                 post.CommentCount++;
                 _context.Posts.Update(post);
@@ -135,7 +141,7 @@ namespace BlogAPI.Controllers
 
             if (comment.CommentId!=null) {
                 var comment1 = _context.Comments.FirstOrDefault(c => c.Id == comment.CommentId);
-                comment.CommentCount++;
+                comment1.CommentCount++;
                 _context.Comments.Update(comment1);
             }
             await _context.SaveChangesAsync();
@@ -152,10 +158,23 @@ namespace BlogAPI.Controllers
                 return NotFound();
             }
             var comment = await _context.Comments.FindAsync(id);
+            string userID = User.FindFirst(ClaimTypes.NameIdentifier).Value;
+
+            if (userID!= comment.UserID)
+            {
+                return Unauthorized();
+            }
+
+    
             if (comment == null)
             {
                 return NotFound();
+            }else
+            {
+               
+                await RemoveAllSubCommentsAsync(comment.Id);
             }
+
 
             _context.Comments.Remove(comment);
             await _context.SaveChangesAsync();
@@ -163,6 +182,25 @@ namespace BlogAPI.Controllers
             return NoContent();
         }
 
+
+        private async Task RemoveAllSubCommentsAsync( long CommentId)
+        {
+            
+            var subcomments = await _context.Comments
+                .Where(c => c.CommentId == CommentId)
+                .ToListAsync();
+
+
+            foreach (var subcomment in subcomments)
+            {
+                await RemoveAllSubCommentsAsync( subcomment.Id);
+                _context.Comments.Remove(subcomment);
+            }
+
+            await _context.SaveChangesAsync();
+
+
+        }
         private bool CommentExists(long id)
         {
             return (_context.Comments?.Any(e => e.Id == id)).GetValueOrDefault();

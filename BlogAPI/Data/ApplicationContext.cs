@@ -31,13 +31,42 @@ namespace BlogAPI.Data
             modelBuilder.Entity<UserPost>().HasKey(b => new { b.AuthorId, b.PostId });
             modelBuilder.Entity<TagPost>().HasKey(b => new { b.TagId,b.PostId });
 
+            
 
+            modelBuilder.Entity<Post>()
+           .HasMany(p => p.Comments)
+           .WithOne(c => c.Post)
+           .HasForeignKey(c => c.PostId)
+           .OnDelete(DeleteBehavior.Cascade);
 
+            // Configure the Post-PostLike relationship
+            modelBuilder.Entity<Post>()
+                .HasMany(p => p.PostLikes)
+                .WithOne(pl => pl.Post)
+                .HasForeignKey(pl => pl.PostId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // Configure the Comment-CommentLike relationship
+            modelBuilder.Entity<Comment>()
+                .HasMany(c => c.CommentLikes)
+                .WithOne(cl => cl.Comment)
+                .HasForeignKey(cl => cl.CommentId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // Configure the Comment-SubComments relationship
+            modelBuilder.Entity<Comment>()
+                .HasOne(c=>c.ParentComment)
+                .WithMany(c => c.SubComments)
+                .HasForeignKey(sc => sc.CommentId)
+                .OnDelete(DeleteBehavior.Restrict);
 
             base.OnModelCreating(modelBuilder);
+        }
+
+           
         }
     }
 
     
-}
+
 

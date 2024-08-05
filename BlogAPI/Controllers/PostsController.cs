@@ -9,6 +9,7 @@ using BlogAPI.Data;
 using BlogAPI.Model;
 using Microsoft.AspNetCore.Identity;
 using System.Security.Claims;
+using System.ComponentModel.Design;
 
 namespace BlogAPI.Controllers
 {
@@ -173,11 +174,37 @@ namespace BlogAPI.Controllers
                 return NotFound();
             }
             var post = await _context.Posts.FindAsync(id);
+
+            string userID = User.FindFirst(ClaimTypes.NameIdentifier).Value;
+
+            UserPost userPost = _context.UserPosts.FirstOrDefault(p => p.PostId == id && p.AuthorId == userID);
+            if (userPost==null)
+            {
+                return Unauthorized();
+            }
             if (post == null)
             {
                 return NotFound();
             }
 
+            
+            List<Comment > comments = await _context.Comments.Where(c => c.PostId == post.Id).ToListAsync();
+
+            if (comments!=null) {
+                foreach (var comment in comments)
+                {
+
+
+
+                    // Remove the parent comment
+                    _context.Comments.Remove(comment);
+
+
+
+                }
+                await _context.SaveChangesAsync();
+            }
+        
             _context.Posts.Remove(post);
             await _context.SaveChangesAsync();
 

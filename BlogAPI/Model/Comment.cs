@@ -31,6 +31,7 @@ namespace BlogAPI.Model
 
 
 
+		public List<CommentLike>? CommentLikes { get; set; }
 
 		public List<Comment>? SubComments { get; set; }
 
