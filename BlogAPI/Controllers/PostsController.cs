@@ -10,13 +10,10 @@ namespace BlogAPI.Controllers
     [ApiController]
     public class PostsController : ControllerBase
     {
-        
-      
         private readonly IPostService _postService;
-        public PostsController( IPostService postService)
+
+        public PostsController(IPostService postService)
         {
-            
-          
             _postService = postService;
         }
 
@@ -24,96 +21,83 @@ namespace BlogAPI.Controllers
         [HttpGet]
         public async Task<ActionResult<IEnumerable<PostGetDTO>>> GetPosts()
         {
-
-            var posts  =  await _postService.GetAllPostsAsync();
-            if (posts==null)
+            var result = await _postService.GetAllPostsAsync();
+            if (!result.Success)
             {
-                return NotFound();
+                return NotFound(result.ErrorMessage);
             }
-           
-            return Ok(posts);
+
+            return Ok(result.Data);
         }
 
-        // GET: api/Posts/5
+        // GET: api/Posts/{id}
         [HttpGet("{id}")]
         public async Task<ActionResult<PostGetDTO>> GetPost(long id)
         {
-         
-
-
-            var post = await _postService.GetPostByIdAsync(id);
-            if (post==null)
+            var result = await _postService.GetPostByIdAsync(id);
+            if (!result.Success)
             {
-                return NotFound();
+                return NotFound(result.ErrorMessage);
             }
-           
 
-            return Ok(post);
+            return Ok(result.Data);
         }
 
+        // GET: api/Posts/getPostByTag
         [HttpGet("getPostByTag")]
         public async Task<ActionResult<IEnumerable<PostGetDTO>>> GetPostByTag(int id)
         {
-
-
-
-            var posts = await _postService.GetPostsByTagIdAsync(id); // This projects to the Post entity
-            
-            
-            if (posts == null)
+            var result = await _postService.GetPostsByTagIdAsync(id);
+            if (!result.Success)
             {
-                return NotFound();
+                return NotFound(result.ErrorMessage);
             }
 
-            return Ok(posts);
+            return Ok(result.Data);
         }
-        // PUT: api/Posts/5
-        // To protect from overposting attacks, see https://go.microsoft.com/fwlink/?linkid=2123754
-        [HttpPut]
-        public  IActionResult PutPost(long id,[FromBody] PostCreateDTO post)
+
+        // PUT: api/Posts/{id}
+        [HttpPut("{id}")]
+        public async Task<IActionResult> PutPost(long id, [FromBody] PostCreateDTO postCreateDto)
         {
-            var result =  _postService.UpdatePostAsync(id, post).Result;
-            if (!result )
+            var result = await _postService.UpdatePostAsync(id, postCreateDto);
+            if (!result.Success)
             {
-                return Problem("Smth went wrong");
+                return Problem(result.ErrorMessage);
             }
 
             return NoContent();
         }
 
         // POST: api/Posts
-        // To protect from overposting attacks, see https://go.microsoft.com/fwlink/?linkid=2123754
         [HttpPost]
         public async Task<ActionResult<PostGetDTO>> PostPost([FromBody] PostCreateDTO postCreateDto)
         {
-           
-            postCreateDto.UserId = User.FindFirst(ClaimTypes.NameIdentifier).Value;
-            var post = await _postService.CreatePostAsync(postCreateDto);
-            if (post  == null)
+            postCreateDto.UserId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+            var result = await _postService.CreatePostAsync(postCreateDto);
+            if (!result.Success)
             {
-                return BadRequest("Error creating post.");
+                return BadRequest(result.ErrorMessage);
             }
-            return  CreatedAtAction(nameof(GetPost), new { id = post.Id }, post);
+
+            return CreatedAtAction(nameof(GetPost), new { id = result.Data.Id }, result.Data);
         }
 
-        // DELETE: api/Posts/5
+        // DELETE: api/Posts/{id}
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeletePost(long id)
         {
-          
+            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
 
-            string userId = User.FindFirst(ClaimTypes.NameIdentifier).Value;
             var result = await _postService.DeletePostAsync(id, userId);
-           
-            if (!result)
+            if (!result.Success)
             {
-                return BadRequest();
+                return BadRequest(result.ErrorMessage);
             }
-          
 
             return NoContent();
         }
-
-        
     }
 }
+

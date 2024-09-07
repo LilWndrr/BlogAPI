@@ -14,6 +14,8 @@ public class AppUserGetDto
     public string PhoneNumber { get; set; } = "";
     public int NumOfPosts { get; set; }
 
+    public string? ProfilePicturePath { get; set; }
+
    
         
     public bool Gender { get; set; }

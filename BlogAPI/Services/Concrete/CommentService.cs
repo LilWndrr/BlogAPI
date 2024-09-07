@@ -1,167 +1,150 @@
 ﻿using BlogAPI.Data;
 using BlogAPI.DTOs;
+using BlogAPI.HelperServices;
+using BlogAPI.Mappers;
 using BlogAPI.Model;
 using BlogAPI.Services.Interfaces;
 using Microsoft.EntityFrameworkCore;
 
 namespace BlogAPI.Services.Concrete;
 
-public class CommentService:ICommentService
-
+public class CommentService : ICommentService
 {
     private readonly ApplicationContext _context;
+
     public CommentService(ApplicationContext context)
     {
         _context = context;
     }
-    
-    public async Task<CommentGetDto?> GetCommentAsync(long id)
+
+    public async Task<ServiceResult<CommentGetDto>> GetCommentAsync(long id)
     {
         if (_context.Comments == null)
         {
-            return null;
+            return ServiceResult<CommentGetDto>.FailureResult("Comments context is not available.");
         }
 
         var comment = await _context.Comments.FindAsync(id);
-        if (comment != null)
+        if (comment == null)
         {
-            return new CommentGetDto
-            {
-                Id = comment.Id,
-                Content = comment.Content,
-                LikesCount = comment.LikesCount,
-                CommentCount = comment.CommentCount,
-                UseriD = comment.UserID
-            };
+            return ServiceResult<CommentGetDto>.FailureResult("Comment not found.");
         }
 
-        return null;
+        return ServiceResult<CommentGetDto>.SuccessResult(comment.ToDto());
     }
 
-    public async Task<CommentGetDto?> PutCommentAsync(long id, CommentCreateDto commentCreateDto)
+    public async Task<ServiceResult<CommentGetDto>> PutCommentAsync(long id, CommentCreateDto commentCreateDto)
     {
-        if (_context.Comments!=null)
+        if (_context.Comments == null)
         {
-            var comment = await _context.Comments.FindAsync(id);
-            if (comment != null)
-            {
-                comment.Content = commentCreateDto.Content;
-                comment.UpdateDateTime = DateTime.Now;
-                await _context.SaveChangesAsync();
-            } 
-            return new CommentGetDto
-            {
-                Id = comment!.Id,
-                Content = comment.Content,
-                LikesCount = comment.LikesCount,
-                CommentCount = comment.CommentCount,
-                UseriD = comment.UserID
-            };
+            return ServiceResult<CommentGetDto>.FailureResult("Comments context is not available.");
         }
 
-        return null;
-       
-    }
-
-    public async Task<IEnumerable<CommentGetDto>?> GetCommentByPostIdAsync(long postId)
-    {
-        if (_context.Comments != null)
+        var comment = await _context.Comments.FindAsync(id);
+        if (comment == null)
         {
-            var comments =await _context.Comments.Where(c => c.PostId == postId && c.CommentId == null).ToListAsync();
-            if (comments != null)
-            {
-                return comments.Select(comment => new CommentGetDto
-                {
-                    Id = comment!.Id,
-                    Content = comment.Content,
-                    LikesCount = comment.LikesCount,
-                    CommentCount = comment.CommentCount,
-                    UseriD = comment.UserID
-                });
-            }
-            
-        }
-        return null;
-      
-    }
-
-    public async Task<IEnumerable<CommentGetDto>?> GetCommentByParentIdAsync(long parentId)
-    {
-        if (_context.Comments != null)
-        {
-            var comments = await _context.Comments.Where(c => c.CommentId == parentId).ToListAsync();
-            if (comments != null)
-            {
-                return comments.Select(comment => new CommentGetDto
-                {
-                    Id = comment!.Id,
-                    Content = comment.Content,
-                    LikesCount = comment.LikesCount,
-                    CommentCount = comment.CommentCount,
-                    UseriD = comment.UserID
-                });
-            }
+            return ServiceResult<CommentGetDto>.FailureResult("Comment not found.");
         }
 
-        return null;
+        comment.Content = commentCreateDto.Content;
+        comment.UpdateDateTime = DateTime.Now;
+
+        _context.Comments.Update(comment);
+        await _context.SaveChangesAsync();
+
+        return ServiceResult<CommentGetDto>.SuccessResult(comment.ToDto());
     }
 
-    public async Task<CommentGetDto?> PostCommentAsync(CommentCreateDto commentCreateDto)
+    public async Task<ServiceResult<IEnumerable<CommentGetDto>>> GetCommentByPostIdAsync(long postId)
     {
-        if (_context.Comments != null)
+        if (_context.Comments == null)
         {
-            Comment comment = new Comment
+            return ServiceResult<IEnumerable<CommentGetDto>>.FailureResult("Comments context is not available.");
+        }
+
+        var comments = await _context.Comments
+            .Where(c => c.PostId == postId && c.CommentId == null)
+            .ToListAsync();
+
+        return ServiceResult<IEnumerable<CommentGetDto>>.SuccessResult(comments.Select(comment => comment.ToDto()));
+    }
+
+    public async Task<ServiceResult<IEnumerable<CommentGetDto>>> GetCommentByParentIdAsync(long parentId)
+    {
+        if (_context.Comments == null)
+        {
+            return ServiceResult<IEnumerable<CommentGetDto>>.FailureResult("Comments context is not available.");
+        }
+
+        var comments = await _context.Comments
+            .Where(c => c.CommentId == parentId)
+            .ToListAsync();
+
+        return ServiceResult<IEnumerable<CommentGetDto>>.SuccessResult(comments.Select(comment => comment.ToDto()));
+    }
+
+    public async Task<ServiceResult<CommentGetDto>> PostCommentAsync(CommentCreateDto commentCreateDto)
+    {
+        if (_context.Comments == null)
+        {
+            return ServiceResult<CommentGetDto>.FailureResult("Comments context is not available.");
+        }
+
+        Comment comment = new Comment
+        {
+            Content = commentCreateDto.Content,
+            CommentId = commentCreateDto.CommentId,
+            UserID = commentCreateDto.UserId
+        };
+
+        if (commentCreateDto.CommentId != null)
+        {
+            var parentComment = await _context.Comments.FindAsync(commentCreateDto.CommentId);
+            if (parentComment != null)
             {
-                Content = commentCreateDto.Content,
-                CommentId = commentCreateDto.CommentId,
-                
-                UserID = commentCreateDto.UserId
-            };
-            if (commentCreateDto.CommentId == null)
-            {
-                comment.CommentId = commentCreateDto.CommentId;
-            }
-            if (commentCreateDto.CommentId != null)
-            {
-                var parentComment= _context.Comments.FirstOrDefault(c => c.Id == comment.CommentId);
-                comment.PostId = parentComment!.PostId;
-                
+                comment.PostId = parentComment.PostId;
                 parentComment.CommentCount++;
                 _context.Comments.Update(parentComment);
-
             }
-            var post=_context.Posts!.FirstOrDefault(p => p.Id == comment.PostId);
-            post!.CommentCount++;
-            _context.Posts!.Update(post);
-            _context.Comments.Add(comment);
-            await _context.SaveChangesAsync();
-          
-             return new CommentGetDto
-            {
-                
-                Content = comment.Content,
-                LikesCount = comment.LikesCount,
-                CommentCount = comment.CommentCount,
-                UseriD = comment.UserID
-            };
+        }
+        else
+        {
+            comment.PostId = await _context.Posts
+                .Where(p => p.Id == comment.PostId)
+                .Select(p => p.Id)
+                .FirstOrDefaultAsync();
         }
 
-        return null;
+        var post = await _context.Posts.FindAsync(comment.PostId);
+        if (post != null)
+        {
+            post.CommentCount++;
+            _context.Posts.Update(post);
+        }
+
+        _context.Comments.Add(comment);
+        await _context.SaveChangesAsync();
+
+        return ServiceResult<CommentGetDto>.SuccessResult(comment.ToDto());
     }
 
-    public async Task<bool> DeleteCommentAsync(long id)
+    public async Task<ServiceResult<bool>> DeleteCommentAsync(long id)
     {
-        if (_context.Comments == null) return false;
-        
+        if (_context.Comments == null)
+        {
+            return ServiceResult<bool>.FailureResult("Comments context is not available.");
+        }
+
         var comment = await _context.Comments.FindAsync(id);
-        if (comment == null) return false;
-            
+        if (comment == null)
+        {
+            return ServiceResult<bool>.FailureResult("Comment not found.");
+        }
+
         comment.IsDeleted = true;
         _context.Comments.Update(comment);
         await _context.SaveChangesAsync();
-        return true;
-            
-        
-        
+
+        return ServiceResult<bool>.SuccessResult(true);
     }
 }

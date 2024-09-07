@@ -89,6 +89,9 @@ namespace BlogAPI.Migrations
                     b.Property<bool>("PhoneNumberConfirmed")
                         .HasColumnType("bit");
 
+                    b.Property<string>("ProfilePicturePath")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<DateTime>("RegisterDate")
                         .HasColumnType("datetime2");
 
@@ -159,7 +162,7 @@ namespace BlogAPI.Migrations
 
                     b.HasIndex("UserID");
 
-                    b.ToTable("Comments", (string)null);
+                    b.ToTable("Comments");
                 });
 
             modelBuilder.Entity("BlogAPI.Model.CommentLike", b =>
@@ -177,7 +180,7 @@ namespace BlogAPI.Migrations
 
                     b.HasIndex("CommentId");
 
-                    b.ToTable("CommentLikes", (string)null);
+                    b.ToTable("CommentLikes");
                 });
 
             modelBuilder.Entity("BlogAPI.Model.Post", b =>
@@ -216,7 +219,7 @@ namespace BlogAPI.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("Posts", (string)null);
+                    b.ToTable("Posts");
                 });
 
             modelBuilder.Entity("BlogAPI.Model.PostLike", b =>
@@ -234,7 +237,7 @@ namespace BlogAPI.Migrations
 
                     b.HasIndex("PostId");
 
-                    b.ToTable("PostLikes", (string)null);
+                    b.ToTable("PostLikes");
                 });
 
             modelBuilder.Entity("BlogAPI.Model.Tag", b =>
@@ -251,7 +254,7 @@ namespace BlogAPI.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("Tags", (string)null);
+                    b.ToTable("Tags");
                 });
 
             modelBuilder.Entity("BlogAPI.Model.TagPost", b =>
@@ -266,7 +269,7 @@ namespace BlogAPI.Migrations
 
                     b.HasIndex("PostId");
 
-                    b.ToTable("TagPosts", (string)null);
+                    b.ToTable("TagPosts");
                 });
 
             modelBuilder.Entity("BlogAPI.Model.UserPost", b =>
@@ -281,7 +284,7 @@ namespace BlogAPI.Migrations
 
                     b.HasIndex("PostId");
 
-                    b.ToTable("UserPosts", (string)null);
+                    b.ToTable("UserPosts");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRole", b =>

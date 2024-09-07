@@ -12,8 +12,8 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace BlogAPI.Migrations
 {
     [DbContext(typeof(ApplicationContext))]
-    [Migration("20240802105608_test9")]
-    partial class test9
+    [Migration("20240906070653_imageUpload")]
+    partial class imageUpload
     {
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
@@ -52,6 +52,12 @@ namespace BlogAPI.Migrations
                     b.Property<bool>("Gender")
                         .HasColumnType("bit");
 
+                    b.Property<bool>("IsBanned")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
                     b.Property<bool>("LockoutEnabled")
                         .HasColumnType("bit");
 
@@ -73,6 +79,9 @@ namespace BlogAPI.Migrations
                         .HasMaxLength(256)
                         .HasColumnType("nvarchar(256)");
 
+                    b.Property<int>("NumOfPosts")
+                        .HasColumnType("int");
+
                     b.Property<string>("PasswordHash")
                         .HasColumnType("nvarchar(max)");
 
@@ -82,14 +91,14 @@ namespace BlogAPI.Migrations
                     b.Property<bool>("PhoneNumberConfirmed")
                         .HasColumnType("bit");
 
+                    b.Property<string>("ProfilePicturePath")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<DateTime>("RegisterDate")
                         .HasColumnType("datetime2");
 
                     b.Property<string>("SecurityStamp")
                         .HasColumnType("nvarchar(max)");
-
-                    b.Property<byte>("Status")
-                        .HasColumnType("tinyint");
 
                     b.Property<bool>("TwoFactorEnabled")
                         .HasColumnType("bit");
@@ -132,11 +141,17 @@ namespace BlogAPI.Migrations
                     b.Property<DateTime>("CreatedDateTime")
                         .HasColumnType("datetime2");
 
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
                     b.Property<int>("LikesCount")
                         .HasColumnType("int");
 
                     b.Property<long?>("PostId")
                         .HasColumnType("bigint");
+
+                    b.Property<DateTime?>("UpdateDateTime")
+                        .HasColumnType("datetime2");
 
                     b.Property<string>("UserID")
                         .HasColumnType("nvarchar(450)");
@@ -159,6 +174,9 @@ namespace BlogAPI.Migrations
 
                     b.Property<long>("CommentId")
                         .HasColumnType("bigint");
+
+                    b.Property<DateTime>("DateCreated")
+                        .HasColumnType("datetime2");
 
                     b.HasKey("UserID", "CommentId");
 
@@ -195,6 +213,12 @@ namespace BlogAPI.Migrations
                     b.Property<DateTime?>("UpdatedDate")
                         .HasColumnType("datetime2");
 
+                    b.Property<bool>("isBanned")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("isDeleted")
+                        .HasColumnType("bit");
+
                     b.HasKey("Id");
 
                     b.ToTable("Posts");
@@ -202,7 +226,7 @@ namespace BlogAPI.Migrations
 
             modelBuilder.Entity("BlogAPI.Model.PostLike", b =>
                 {
-                    b.Property<string>("UserID")
+                    b.Property<string>("UserId")
                         .HasColumnType("nvarchar(450)");
 
                     b.Property<long?>("PostId")
@@ -211,7 +235,7 @@ namespace BlogAPI.Migrations
                     b.Property<DateTime>("CreatedDate")
                         .HasColumnType("datetime2");
 
-                    b.HasKey("UserID", "PostId");
+                    b.HasKey("UserId", "PostId");
 
                     b.HasIndex("PostId");
 
@@ -450,7 +474,7 @@ namespace BlogAPI.Migrations
 
                     b.HasOne("BlogAPI.Model.AppUser", "User")
                         .WithMany("PostLikes")
-                        .HasForeignKey("UserID")
+                        .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 

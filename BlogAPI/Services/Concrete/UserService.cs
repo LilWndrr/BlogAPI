@@ -1,199 +1,133 @@
-﻿using BlogAPI.Data;
+﻿using AutoMapper;
+using BlogAPI.Data;
 using BlogAPI.DTOs;
+using BlogAPI.HelperServices;
 using BlogAPI.Model;
 using BlogAPI.Services.Interfaces;
 using Microsoft.AspNetCore.Identity;
-using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.EntityFrameworkCore;
 
 namespace BlogAPI.Services.Concrete;
 
-public class UserService:IUserService
+public class UserService : IUserService
 {
-    
     private readonly UserManager<AppUser> _userManager;
     private readonly SignInManager<AppUser> _signInManager;
     private readonly ApplicationContext _context;
     private readonly IEmailSender _emailSender;
+    private readonly IMapper _mapper;
 
-    public UserService(UserManager<AppUser> userManager,SignInManager<AppUser> signInManager,ApplicationContext context,IEmailSender emailSender)
+    public UserService(UserManager<AppUser> userManager, SignInManager<AppUser> signInManager, ApplicationContext context, IEmailSender emailSender, IMapper mapper)
     {
         _userManager = userManager;
         _signInManager = signInManager;
         _context = context;
         _emailSender = emailSender;
+        _mapper = mapper;
     }
-    public async Task<IEnumerable<AppUserGetDto>?> GetUsersAsync()
+
+    public async Task<ServiceResult<IEnumerable<AppUserGetDto>>> GetUsersAsync()
     {
         if (_context.Users == null)
         {
-            return null;
+            return ServiceResult<IEnumerable<AppUserGetDto>>.FailureResult("Users context is not available.");
         }
-        var users =await _context.Users.Where(u=>u.IsDeleted==false&&u.IsBanned==false).ToListAsync();
-        if (users == null)
-        {
-            return null;
-        }
-        return users.Select(user => new AppUserGetDto
-        {
-            Id = user.Id,
-            UserName = user.UserName,
-            Name = user.Name,
-            MiddleName = user.Name,
-            FamilyName = user.FamilyName,
-            Email = user.Email,
-            
-            NumOfPosts = user.NumOfPosts,
-            Gender = user.Gender,
-            BirthDate = user.BirthDate
-                    
-        });
+
+        var users = await _context.Users.Where(u => !u.IsDeleted && !u.IsBanned).ToListAsync();
+        var result = _mapper.Map<IEnumerable<AppUserGetDto>>(users);
+        return ServiceResult<IEnumerable<AppUserGetDto>>.SuccessResult(result);
     }
 
-    public async  Task<AppUserGetDto?> GetAppUserAsync(string id)
+    public async Task<ServiceResult<AppUserGetDto>> GetAppUserAsync(string id)
     {
         if (_context.Users == null)
         {
-            return null;
+            return ServiceResult<AppUserGetDto>.FailureResult("Users context is not available.");
         }
+
         var user = await _userManager.FindByIdAsync(id);
         if (user == null)
         {
-            return null;
+            return ServiceResult<AppUserGetDto>.FailureResult("User not found.");
         }
 
-        return new AppUserGetDto
-        {
-            Id = user.Id,
-            Name = user.Name,
-            MiddleName = user.Name,
-            FamilyName = user.FamilyName,
-            NumOfPosts = user.NumOfPosts,
-            Gender = user.Gender,
-            BirthDate = user.BirthDate,
-            UserName = user.UserName,
-            PhoneNumber = user.PhoneNumber,
-            Email = user.Email
-        };
+        var result = _mapper.Map<AppUserGetDto>(user);
+        return ServiceResult<AppUserGetDto>.SuccessResult(result);
     }
 
-    public async Task<AppUserGetDto?> PutAppUserAsync(string id, AppUserCreateDto appUser)
+    public async Task<ServiceResult<AppUserGetDto>> PutAppUserAsync(string id, AppUserCreateDto appUser)
     {
-        if(_context.Users==null)
+        if (_context.Users == null)
         {
-            return null;
+            return ServiceResult<AppUserGetDto>.FailureResult("Users context is not available.");
         }
+
         var user = await _userManager.FindByIdAsync(id);
         if (user == null)
         {
-            return null;
+            return ServiceResult<AppUserGetDto>.FailureResult("User not found.");
         }
-        user.BirthDate = appUser.BirthDate;
-        user.Email = appUser.Email;
-        user.Name = appUser.Name;
-        user.Gender = appUser.Gender;
-        user.MiddleName = appUser.MiddleName;
-        user.FamilyName = appUser.FamilyName;
-        user.PhoneNumber = appUser.PhoneNumber;
-        user.UserName = appUser.UserName;
+
+        _mapper.Map(appUser, user);
         var result = await _userManager.UpdateAsync(user);
         if (result.Succeeded)
         {
-            return new AppUserGetDto
-            {
-                Id = user.Id,
-                Name = user.Name,
-                MiddleName = user.Name,
-                FamilyName = user.FamilyName,
-                NumOfPosts = user.NumOfPosts,
-                Gender = user.Gender,
-                BirthDate = user.BirthDate,
-                UserName = user.UserName,
-                PhoneNumber = user.PhoneNumber,
-                Email = user.Email
-            };
+            var mappedUser = _mapper.Map<AppUserGetDto>(user);
+            return ServiceResult<AppUserGetDto>.SuccessResult(mappedUser);
         }
 
-        return null;
+        return ServiceResult<AppUserGetDto>.FailureResult("Failed to update user.");
     }
 
-    public async Task<AppUserGetDto?> PostAppUserAsync(AppUserCreateDto user)
+    public async Task<ServiceResult<AppUserGetDto>> PostAppUserAsync(AppUserCreateDto user)
     {
         if (_context.Users == null)
         {
-            return null;
+            return ServiceResult<AppUserGetDto>.FailureResult("Users context is not available.");
         }
-        AppUser appUser = new AppUser
-        {
-            UserName = user.UserName,
-            Name = user.Name,
-            MiddleName = user.Name,
-            FamilyName = user.FamilyName,
-            
-            Gender = user.Gender,
-            BirthDate = user.BirthDate,
-           
-            PhoneNumber = user.PhoneNumber,
-            Email = user.Email,
-            Password = user.Password
-        };
-        var result = await _userManager.CreateAsync(appUser, appUser.Password);
-        var token = await _userManager.GenerateEmailConfirmationTokenAsync(appUser);
-        var param = new Dictionary<string, string?>
-        {
-            {"token",token},
-            {"email",appUser.Email}
-        };
-        var callback = QueryHelpers.AddQueryString("http://localhost:5231/api/AppUsers/emailConfirmation", param);
-        IEnumerable<string> emails = new List<string> { user.Email };
 
-        var message = new Message(emails, "Email Confirmation Token", callback);
-        await _emailSender.SendEmailAsync(message);
+        var appUser = _mapper.Map<AppUser>(user);
+        var result = await _userManager.CreateAsync(appUser, appUser.Password);
         if (result.Succeeded)
         {
-            return new AppUserGetDto
+            var token = await _userManager.GenerateEmailConfirmationTokenAsync(appUser);
+            var param = new Dictionary<string, string?>
             {
-                Id = appUser.Id,
-                Name = appUser.Name,
-                MiddleName = appUser.Name,
-                FamilyName = appUser.FamilyName,
-                NumOfPosts = appUser.NumOfPosts,
-                Gender = appUser.Gender,
-                BirthDate = appUser.BirthDate,
-                UserName = appUser.UserName,
-                PhoneNumber = appUser.PhoneNumber,
-                Email = appUser.Email
+                {"token", token},
+                {"email", appUser.Email}
             };
+            var callback = QueryHelpers.AddQueryString("http://localhost:5231/api/AppUsers/emailConfirmation", param);
+            var message = new Message(new List<string> { user.Email }, "Email Confirmation Token", callback);
+            await _emailSender.SendEmailAsync(message);
+
+            var mappedUser = _mapper.Map<AppUserGetDto>(appUser);
+            return ServiceResult<AppUserGetDto>.SuccessResult(mappedUser);
         }
 
-        return null;
+        return ServiceResult<AppUserGetDto>.FailureResult("Failed to create user.");
     }
 
     public async Task<bool> ConfirmEmailAsync(string email, string token)
     {
         var user = await _userManager.FindByEmailAsync(email);
-        if (user is null)
-            return false;
-        var confirmResult =await _userManager.ConfirmEmailAsync(user, token);
-        if (!confirmResult.Succeeded)
-        {
-            return false;
-        }
-        return true;
-    }
-    public async Task<bool> BanUserAsync(string id)
-    {
-        if (_userManager.Users == null)
+        if (user == null)
         {
             return false;
         }
 
+        var result = await _userManager.ConfirmEmailAsync(user, token);
+        return result.Succeeded;
+    }
+
+    public async Task<bool> BanUserAsync(string id)
+    {
         var user = await _userManager.FindByIdAsync(id);
         if (user == null)
         {
             return false;
         }
+
         user.IsBanned = true;
         var result = await _userManager.UpdateAsync(user);
         return result.Succeeded;
@@ -201,13 +135,8 @@ public class UserService:IUserService
 
     public async Task<bool> DeleteAppUserAsync(string id)
     {
-        if (_context.Users == null)
-        {
-            return false;
-        }
-
         var user = await _userManager.FindByIdAsync(id);
-        if (user==null)
+        if (user == null)
         {
             return false;
         }
@@ -219,31 +148,108 @@ public class UserService:IUserService
 
     public async Task<bool> LoginAsync(string userName, string password)
     {
-        var appUser = await _userManager.FindByNameAsync(userName);
-        if (appUser == null)
-        {
-            return false;
-        }
-        var signInResult = await _signInManager.PasswordSignInAsync(appUser,password,false,false);
+        var signInResult = await _signInManager.PasswordSignInAsync(userName, password, false, false);
         return signInResult.Succeeded;
     }
 
     public async Task<bool> LogoutAsync()
     {
-         await _signInManager.SignOutAsync();
-         return true;
+        await _signInManager.SignOutAsync();
+        return true;
     }
 
+    public async Task<ServiceResult<string>> UploadProfilePictureAsync(string userId, IFormFile file)
+    {
+        if (file == null || file.Length == 0)
+        {
+            return ServiceResult<string>.FailureResult("Invalid image format.") ;
+        }
+
+        // Define the folder path
+        var folderPath = Path.Combine("wwwroot", "images");
+        Directory.CreateDirectory(folderPath); // Ensure the directory exists
+        
+        // Generate a unique filename
+        var fileName = Guid.NewGuid() + Path.GetExtension(file.FileName);
+        var filePath = Path.Combine(folderPath, fileName);
+
+        // Save the file
+        using (var stream = new FileStream(filePath, FileMode.Create))
+        {
+            await file.CopyToAsync(stream);
+        }
+
+        // Update the user's profile picture path
+        var user = await _userManager.FindByIdAsync(userId);
+        if (user == null)
+        {
+            return ServiceResult<string>.FailureResult("User was not found") ;
+        }
+
+        user.ProfilePicturePath = Path.Combine("images", fileName);
+        await _context.SaveChangesAsync();
+
+        return ServiceResult<string>.SuccessResult(user.ProfilePicturePath); 
+    }
+    // Update profile picture logic
+    public async Task<ServiceResult<string>> UpdateProfilePictureAsync(string userId, IFormFile file)
+    {
+        var user = await _context.Users.FindAsync(userId);
+        if (user == null)
+        {
+            return ServiceResult<string>.FailureResult("User not found");
+        }
+
+        // Delete the current image if it exists
+        if (!string.IsNullOrEmpty(user.ProfilePicturePath))
+        {
+            var oldImagePath = Path.Combine("wwwroot", user.ProfilePicturePath);
+            if (File.Exists(oldImagePath))
+            {
+                File.Delete(oldImagePath);
+            }
+        }
+
+        // Now upload the new image (reusing upload logic)
+        return await UploadProfilePictureAsync(userId, file);
+    }
+        
+    public async Task<ServiceResult<bool>> DeleteProfilePictureAsync(string  userId)
+    {
+        var user = await _context.Users.FindAsync(userId);
+        if (user == null)
+        {
+            return  ServiceResult<bool>.FailureResult("User not found") ;
+        }
+
+        // Delete the image file from the file system
+        if (!string.IsNullOrEmpty(user.ProfilePicturePath))
+        {
+            var filePath = Path.Combine("wwwroot", user.ProfilePicturePath);
+            if (File.Exists(filePath))
+            {
+                File.Delete(filePath);
+            }
+
+            // Update the user to remove the profile picture reference
+            user.ProfilePicturePath = null;
+            await _context.SaveChangesAsync();
+
+            return ServiceResult<bool>.SuccessResult(true);
+        }
+
+        return ServiceResult<bool>.FailureResult("No profile picture to delete");
+    }
     public async Task<bool> ForgetPasswordAsync(string email)
     {
-        AppUser user = await _userManager.FindByEmailAsync(email);
+        var user = await _userManager.FindByEmailAsync(email);
         if (user != null)
         {
-            var token= _userManager.GeneratePasswordResetTokenAsync(user).Result;
+            var token = await _userManager.GeneratePasswordResetTokenAsync(user);
             var param = new Dictionary<string, string?>
             {
-                {"token",token},
-                {"email",user.Email}
+                {"token", token},
+                {"email", user.Email}
             };
             var callback = QueryHelpers.AddQueryString("http://localhost:5231/api/AppUsers/ResetPassword", param);
             var message = new Message(new List<string> { user.Email }, "Reset password", callback);
@@ -254,19 +260,21 @@ public class UserService:IUserService
         return false;
     }
 
-    public async Task<ResetPasswordForm> ResetPassswordAbc(string email,string token)
+
+
+    public Task<ResetPasswordForm> ResetPasswordAbc(string email, string token)
     {
-        var model = new ResetPasswordForm { Token = token,Email = email};
-        return model;
+        return Task.FromResult(new ResetPasswordForm { Token = token, Email = email });
     }
 
-    public async  Task<bool> ResetPasswordAsync(ResetPasswordForm resetPasswordForm)
+    public async Task<bool> ResetPasswordAsync(ResetPasswordForm resetPasswordForm)
     {
-        AppUser user = await _userManager.FindByEmailAsync(resetPasswordForm.Email);
+        var user = await _userManager.FindByEmailAsync(resetPasswordForm.Email);
         if (user == null)
         {
             return false;
         }
+
         var result = await _userManager.ResetPasswordAsync(user, resetPasswordForm.Token, resetPasswordForm.Password);
         return result.Succeeded;
     }

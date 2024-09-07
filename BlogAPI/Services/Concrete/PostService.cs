@@ -1,5 +1,7 @@
 ﻿using BlogAPI.Data;
 using BlogAPI.DTOs;
+using BlogAPI.HelperServices;
+using BlogAPI.Mappers;
 using BlogAPI.Model;
 using BlogAPI.Services.Interfaces;
 using Microsoft.AspNetCore.Identity;
@@ -7,7 +9,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace BlogAPI.Services.Concrete;
 
-public class PostService: IPostService
+public class PostService : IPostService
 {
     private readonly ApplicationContext _context;
     private readonly UserManager<AppUser> _userManager;
@@ -18,287 +20,170 @@ public class PostService: IPostService
         _userManager = userManager;
     }
 
-    public async Task<IEnumerable<PostGetDTO>?> GetAllPostsAsync()
+    public async Task<ServiceResult<IEnumerable<PostGetDTO>>> GetAllPostsAsync()
     {
         if (_context.Posts == null)
         {
-            return null;
+            return ServiceResult<IEnumerable<PostGetDTO>>.FailureResult("Posts table is not available.");
         }
-        var posts = await _context.Posts.Where(p=>p.isDeleted==false&&p.isBanned==false).Include(p=>p.PostLikes)
-            .Include(p=>p.Comments)!.ThenInclude(c=>c.User)
-            .Include(p=>p.Authors).ThenInclude(up=>up.Author)
-            .Include(p=>p.TagPosts).ThenInclude(tp=>tp.Tag)
-            .Include(p=>p.PostLikes).ThenInclude(pl=>pl.User)
-            .ToListAsync();
-        var postsDtos = posts.Select(post => new PostGetDTO
-            {
-                Id = post.Id,
-                Title = post.Title,
-                HtmlContent = post.HtmlContent,
-                PublicationDate = post.PublicationDate,
-                LikeCount = post.LikeCount,
-                CommentCount = post.CommentCount,
-                Comments = post.Comments?.Select(comment => new CommentGetDto
-                    {
-                        Id = comment.Id,
-                        Content = comment.Content,
-                        LikesCount = comment.LikesCount,
-                        CommentCount = comment.CommentCount,
-                        UseriD = comment.UserID
-                        
-                    }
-                ).ToList(),
-                Tags = post.TagPosts?.Select(tag=> new TagGetDto
-                {
-                    ID=tag.Tag.Id,
-                    Name = tag.Tag.Name
-                }).ToList(),
-                Likes = post.PostLikes?.Select(like=> new PostLikeGetDto
-                {
-                    UserId = like.User.Id
-                }).ToList(),
-                Authors = post.Authors?.Select(author=> new AppUserGetDto
-                {
-                    Id = author.AuthorId!,
-                    Name = author.Author!.Name,
-                    MiddleName = author.Author.MiddleName,
-                    FamilyName = author.Author.FamilyName,
-                    NumOfPosts = author.Author.NumOfPosts,
-                    Gender = author.Author.Gender,
-                    BirthDate = author.Author.BirthDate
-                }).ToList()
-            }
-        );
-        
-        
-        
-        
-        return postsDtos;
-    }
 
-    public async Task<PostGetDTO?> GetPostByIdAsync(long id)
-    {
-        if (_context.Posts == null)
-        {
-            return null;
-        }
-        var post = await _context.Posts.Include(p => p.PostLikes)
+        var posts = await _context.Posts
+            .Where(p => !p.isDeleted && !p.isBanned)
+            .Include(p => p.PostLikes).ThenInclude(pl => pl.User)
             .Include(p => p.Comments).ThenInclude(c => c.User)
             .Include(p => p.Authors).ThenInclude(up => up.Author)
             .Include(p => p.TagPosts).ThenInclude(tp => tp.Tag)
-            .Include(p => p.PostLikes).ThenInclude(pl => pl.User).FirstOrDefaultAsync(p => p.Id == id);
+            .ToListAsync();
 
-        if (post == null||post.isBanned==true||post.isDeleted==true)
-        {
-            return null;
-        }
-
-      
-        PostGetDTO? postGetDto = new PostGetDTO
-        {
-            Id = post.Id,
-            Title = post.Title,
-            HtmlContent = post.HtmlContent,
-            PublicationDate = post.PublicationDate,
-            LikeCount = post.LikeCount,
-            CommentCount = post.CommentCount,
-            Comments = post.Comments?.Select(comment => new CommentGetDto
-                {
-                    Id = comment.Id,
-                    Content = comment.Content,
-                    LikesCount = comment.LikesCount,
-                    CommentCount = comment.CommentCount,
-                    UseriD = comment.UserID
-                        
-                }
-            ).ToList(),
-            Tags = post.TagPosts?.Select(tag=> new TagGetDto
-            {
-                ID=tag.Tag.Id,
-                Name = tag.Tag.Name
-            }).ToList(),
-            Likes = post.PostLikes?.Select(like=> new PostLikeGetDto
-            {
-                UserId = like.User.Id
-            }).ToList(),
-            Authors = post.Authors?.Select(author=> new AppUserGetDto
-            {
-                Id = author.AuthorId!,
-                Name = author.Author!.Name,
-                MiddleName = author.Author.MiddleName,
-                FamilyName = author.Author.FamilyName,
-                NumOfPosts = author.Author.NumOfPosts,
-                Gender = author.Author.Gender,
-                BirthDate = author.Author.BirthDate
-            }).ToList()
-        
-        };
-    
-        
-        
-        return postGetDto;
+        var postDtos = posts.Select(post => post.ToDto()).ToList();
+        return ServiceResult<IEnumerable<PostGetDTO>>.SuccessResult(postDtos);
     }
 
-    public async Task<IEnumerable<PostGetDTO>?> GetPostsByTagIdAsync(int id)
+    public async Task<ServiceResult<PostGetDTO>> GetPostByIdAsync(long id)
     {
         if (_context.Posts == null)
         {
-            return null;
+            return ServiceResult<PostGetDTO>.FailureResult("Posts table is not available.");
         }
-        var posts =  await _context.TagPosts.Where(up => up.TagId == id).Select(up => up.Post).Where(p=>p.isBanned==false&&p.isDeleted==false).ToListAsync();
-        if (posts==null)
+
+        var post = await _context.Posts
+            .Include(p => p.PostLikes).ThenInclude(pl => pl.User)
+            .Include(p => p.Comments).ThenInclude(c => c.User)
+            .Include(p => p.Authors).ThenInclude(up => up.Author)
+            .Include(p => p.TagPosts).ThenInclude(tp => tp.Tag)
+            .FirstOrDefaultAsync(p => p.Id == id);
+
+        if (post == null || post.isBanned || post.isDeleted)
         {
-            return null;
+            return ServiceResult<PostGetDTO>.FailureResult("Post not found or is banned/deleted.");
         }
-        
-        return posts.Select(post => new PostGetDTO
-            {
-                Id = post.Id,
-                Title = post.Title,
-                HtmlContent = post.HtmlContent,
-                PublicationDate = post.PublicationDate,
-                LikeCount = post.LikeCount,
-                CommentCount = post.CommentCount,
-                Comments = post.Comments?.Select(comment => new CommentGetDto
-                    {
-                        Id = comment.Id,
-                        Content = comment.Content,
-                        LikesCount = comment.LikesCount,
-                        CommentCount = comment.CommentCount,
-                        UseriD = comment.UserID
-                        
-                    }
-                ).ToList(),
-                Tags = post.TagPosts?.Select(tag=> new TagGetDto
-                {
-                    ID=tag.Tag.Id,
-                    Name = tag.Tag.Name
-                }).ToList(),
-                Likes = post.PostLikes?.Select(like=> new PostLikeGetDto
-                {
-                    UserId = like.User.Id
-                }).ToList(),
-                Authors = post.Authors?.Select(author=> new AppUserGetDto
-                {
-                    Id = author.AuthorId!,
-                    Name = author.Author!.Name,
-                    MiddleName = author.Author.MiddleName,
-                    FamilyName = author.Author.FamilyName,
-                    NumOfPosts = author.Author.NumOfPosts,
-                    Gender = author.Author.Gender,
-                    BirthDate = author.Author.BirthDate
-                }).ToList()
-            }
-        );
+
+        return ServiceResult<PostGetDTO>.SuccessResult(post.ToDto());
     }
 
-    public async Task<PostGetDTO?> CreatePostAsync(PostCreateDTO postCreateDto)
+    public async Task<ServiceResult<IEnumerable<PostGetDTO>>> GetPostsByTagIdAsync(int tagId)
     {
-        Post post = new Post
+        if (_context.Posts == null)
         {
-            Title = postCreateDto.Title,
-            HtmlContent = postCreateDto.Title,
-            PublicationDate = DateTime.Now,
-            
-            
-
-        };
-         _context.Posts.Add(post);
-         await _context.SaveChangesAsync();
-         CrossTables(postCreateDto, post);
-         
-         return new PostGetDTO
-        {
-            Id = post.Id,
-            Title = post.Title,
-            HtmlContent = post.HtmlContent,
-            PublicationDate = post.PublicationDate,
-            CommentCount = post.CommentCount,
-            LikeCount = post.LikeCount
-        };;
-    }
-
-    public async Task<bool> UpdatePostAsync(long id,PostCreateDTO postCreateDto )
-    {
-        if (_context.Posts != null)
-        {
-            var post = _context.Posts.FirstOrDefault(p => p.Id == id);
-            if (post == null)
-            {
-                return false;
-            }
-            if (postCreateDto.Title!="")
-            {
-                post.Title = postCreateDto.Title;
-            }
-
-            if (postCreateDto.HtmlContent!="")
-            {
-                post.HtmlContent = postCreateDto.HtmlContent;
-            }
-        
-            post.UpdatedDate = DateTime.Now;
-            _context.Posts.Update(post);
+            return ServiceResult<IEnumerable<PostGetDTO>>.FailureResult("Posts table is not available.");
         }
 
+        var posts = await _context.TagPosts
+            .Where(tp => tp.TagId == tagId)
+            .Select(tp => tp.Post)
+            .Where(p => !p.isBanned && !p.isDeleted)
+            .ToListAsync();
+
+        if (posts == null || !posts.Any())
+        {
+            return ServiceResult<IEnumerable<PostGetDTO>>.FailureResult("No posts found for the specified tag.");
+        }
+
+        var postDtos = posts.Select(post => post.ToDto()).ToList();
+        return ServiceResult<IEnumerable<PostGetDTO>>.SuccessResult(postDtos);
+    }
+
+    public async Task<ServiceResult<PostGetDTO>> CreatePostAsync(PostCreateDTO postCreateDto)
+    {
+        var post = postCreateDto.ToEntity();
+        _context.Posts.Add(post);
         await _context.SaveChangesAsync();
-        return true;
+
+        var success = await CrossTables(postCreateDto, post);
+        if (!success)
+        {
+            return ServiceResult<PostGetDTO>.FailureResult("Error updating cross tables.");
+        }
+
+        return ServiceResult<PostGetDTO>.SuccessResult(post.ToDto());
     }
 
-    public async Task<bool> BanPostAsync(long id)
+    public async Task<ServiceResult<bool>> UpdatePostAsync(long id, PostCreateDTO postCreateDto)
     {
-        var post = _context.Posts.FirstOrDefault(p => p.Id == id);
+        var post = await _context.Posts.FindAsync(id);
         if (post == null)
         {
-            return false;
+            return ServiceResult<bool>.FailureResult("Post not found.");
+        }
+
+        if (!string.IsNullOrEmpty(postCreateDto.Title))
+        {
+            post.Title = postCreateDto.Title;
+        }
+
+        if (!string.IsNullOrEmpty(postCreateDto.HtmlContent))
+        {
+            post.HtmlContent = postCreateDto.HtmlContent;
+        }
+
+        post.UpdatedDate = DateTime.Now;
+        _context.Posts.Update(post);
+        await _context.SaveChangesAsync();
+
+        return ServiceResult<bool>.SuccessResult(true);
+    }
+
+    public async Task<ServiceResult<bool>> BanPostAsync(long id)
+    {
+        var post = await _context.Posts.FindAsync(id);
+        if (post == null)
+        {
+            return ServiceResult<bool>.FailureResult("Post not found.");
         }
 
         post.isBanned = true;
         _context.Posts.Update(post);
         await _context.SaveChangesAsync();
-        return true;
+
+        return ServiceResult<bool>.SuccessResult(true);
     }
-    
-    public async Task<bool> DeletePostAsync(long id,string userId)
+
+    public async Task<ServiceResult<bool>> DeletePostAsync(long id, string userId)
     {
-        if (_context.Posts == null)
-        {
-            return false;
-        }
-        var post = _context.Posts.FirstOrDefault(p => p.Id == id);
-        UserPost userPost = _context.UserPosts.FirstOrDefault(up => up.PostId == post.Id && up.AuthorId == userId);
-        if (userPost == null)
-        {
-            return false;
-        }
+        var post = await _context.Posts.FindAsync(id);
         if (post == null)
         {
-            return false;
+            return ServiceResult<bool>.FailureResult("Post not found.");
+        }
+
+        var userPost = await _context.UserPosts
+            .FirstOrDefaultAsync(up => up.PostId == id && up.AuthorId == userId);
+
+        if (userPost == null)
+        {
+            return ServiceResult<bool>.FailureResult("User is not authorized to delete this post.");
         }
 
         post.isDeleted = true;
         _context.Posts.Update(post);
         await _context.SaveChangesAsync();
-        return true;
+
+        return ServiceResult<bool>.SuccessResult(true);
     }
-    
+
     private async Task<bool> CrossTables(PostCreateDTO postCreateDto, Post post)
     {
-        
-        UserPost userPost1 = new UserPost();
-        userPost1.AuthorId = postCreateDto.UserId;
-        userPost1.PostId = post.Id;
-        AppUser mainAuthor = await _userManager.FindByIdAsync(postCreateDto.UserId);
+        var userPost = new UserPost
+        {
+            AuthorId = postCreateDto.UserId,
+            PostId = post.Id
+        };
+
+        var mainAuthor = await _userManager.FindByIdAsync(postCreateDto.UserId);
+        if (mainAuthor == null)
+        {
+            return false;
+        }
+
         mainAuthor.NumOfPosts++;
         await _userManager.UpdateAsync(mainAuthor);
-        _context.UserPosts.Add(userPost1);
+        _context.UserPosts.Add(userPost);
 
-        if (postCreateDto.CoAuhtorsIds  != null)
+        if (postCreateDto.CoAuhtorsIds != null)
         {
             foreach (var authorId in postCreateDto.CoAuhtorsIds)
             {
-                AppUser author = await _userManager.FindByIdAsync(authorId);
-                
+                var author = await _userManager.FindByIdAsync(authorId);
                 if (author == null)
                 {
                     return false;
@@ -306,33 +191,35 @@ public class PostService: IPostService
 
                 author.NumOfPosts++;
                 await _userManager.UpdateAsync(author);
-                UserPost userPost = new UserPost();
-                userPost.AuthorId = authorId;
-                userPost.PostId = post.Id;
-                _context.UserPosts.Add(userPost);
+                _context.UserPosts.Add(new UserPost
+                {
+                    AuthorId = authorId,
+                    PostId = post.Id
+                });
             }
         }
-        if (postCreateDto.TagIds!=null)
+
+        if (postCreateDto.TagIds != null)
         {
             foreach (var tagId in postCreateDto.TagIds)
             {
-                Tag tag =  _context.Tags.FirstOrDefault(t=> t.Id==tagId);
+                var tag = await _context.Tags.FindAsync(tagId);
                 if (tag == null)
                 {
                     return false;
                 }
-                TagPost tagPost = new TagPost();
-                tagPost.TagId = tagId;
-                tagPost.PostId = post.Id;
-                _context.TagPosts.Add(tagPost);
 
+                _context.TagPosts.Add(new TagPost
+                {
+                    TagId = tagId,
+                    PostId = post.Id
+                });
             }
         }
 
         await _context.SaveChangesAsync();
-
         return true;
-    } 
-    
-    
+    }
 }
+
+    

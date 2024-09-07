@@ -11,6 +11,7 @@ namespace BlogAPI.Model
         public string Name { get; set; } = "";
         public string? MiddleName { get; set; }
         public string? FamilyName { get; set; }
+        public string? ProfilePicturePath { get; set; }
 
         public bool IsDeleted { get; set; }
         public bool IsBanned { get; set; }
@@ -19,6 +20,7 @@ namespace BlogAPI.Model
         public DateTime BirthDate { get; set; }
         public DateTime RegisterDate { get; set; }
         public int NumOfPosts { get; set; } 
+        
        
         [NotMapped]
         public string? Password { get; set; }

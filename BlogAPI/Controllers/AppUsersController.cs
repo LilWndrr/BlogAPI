@@ -6,170 +6,187 @@ using BlogAPI.Services.Interfaces;
 namespace BlogAPI.Controllers
 {
     [Route("api/[controller]")]
-    [ApiController]
-    public class AppUsersController : ControllerBase
+[ApiController]
+public class AppUsersController : ControllerBase
+{
+    private readonly IUserService _userService;
+
+    public AppUsersController(IUserService userService)
+    {
+        _userService = userService;
+    }
+
+    // GET: api/AppUsers
+    [HttpGet]
+    public async Task<ActionResult<IEnumerable<AppUserGetDto>>> GetUsers()
+    {
+        var result = await _userService.GetUsersAsync();
+        if (!result.Success)
+        {
+            return NotFound(result.ErrorMessage);
+        }
+        return Ok(result.Data);
+    }
+
+    // GET: api/AppUsers/5
+    [HttpGet("{id}")]
+    public async Task<ActionResult<AppUserGetDto>> GetAppUser(string id)
+    {
+        var result = await _userService.GetAppUserAsync(id);
+        if (!result.Success)
+        {
+            return NotFound(result.ErrorMessage);
+        }
+        return Ok(result.Data);
+    }
+
+    // PUT: api/AppUsers/5
+    [HttpPut("{id}")]
+    public async Task<ActionResult<AppUserGetDto>> PutAppUser(string id, [FromBody] AppUserCreateDto appUser)
+    {
+        var result = await _userService.PutAppUserAsync(id, appUser);
+        if (!result.Success)
+        {
+            return BadRequest(result.ErrorMessage);
+        }
+        return Ok(result.Data);
+    }
+
+    // POST: api/AppUsers
+    [HttpPost]
+    public async Task<ActionResult<AppUserGetDto>> PostAppUser([FromBody] AppUserCreateDto appUser)
+    {
+        var result = await _userService.PostAppUserAsync(appUser);
+        if (!result.Success)
+        {
+            return BadRequest(result.ErrorMessage);
+        }
+        return Ok(result.Data);
+    }
+
+    [HttpGet("emailConfirmation")]
+    public async Task<ActionResult> EmailConfirmation([FromQuery] string email, [FromQuery] string token)
+    {
+        var result = await _userService.ConfirmEmailAsync(email, token);
+        if (!result)
+        {
+            return BadRequest("Email confirmation failed.");
+        }
+        return Ok();
+    }
+
+    [HttpPost("banUser")]
+    public async Task<ActionResult> BanUser([FromQuery] string id)
+    {
+        var result = await _userService.BanUserAsync(id);   
+        if (!result)
+        {
+            return NotFound("User not found.");
+        }
+        return Ok();
+    }
+
+    // DELETE: api/AppUsers/5
+    [HttpDelete("{id}")]
+    public async Task<IActionResult> DeleteAppUser(string id)
+    {
+        var result = await _userService.DeleteAppUserAsync(id);
+        if (!result)
+        {
+            return NotFound("User not found.");
+        }
+        return Ok();
+    }
+
+    [HttpPost("login")]
+    public async Task<ActionResult> Login([FromForm] string userName, [FromForm] string password)
+    {
+        var result = await _userService.LoginAsync(userName, password);
+        if (!result)
+        {
+            return Unauthorized("Invalid username or password.");
+        }
+        return Ok("Login successful.");
+    }
+
+    [Authorize]
+    [HttpGet("logout")]
+    public async Task<ActionResult> Logout()
+    {
+        await _userService.LogoutAsync();
+        return Ok("Logout successful.");
+    }
+    [HttpPost("UploadProfilePicture")]
+    public async  Task<ActionResult> UploadProfilePictureAsync(string userId, IFormFile file)
     {
         
-        private readonly IUserService _userService;
+        var result = await _userService.UploadProfilePictureAsync(userId, file);
 
-        public AppUsersController(IUserService userService)
+        if (result.Success)
         {
-            
-            _userService = userService;
-        }
-
-        // GET: api/AppUsers
-        [HttpGet]
-        public async Task<ActionResult<IEnumerable<AppUserGetDto>>> GetUsers()
-        {
-            var users = await _userService.GetUsersAsync();
-            if (users == null)
-            {
-                return NotFound();
-            }
-            return  Ok(users);
+            return Ok("Image uploaded successfully");
         }
         
-
-        // GET: api/AppUsers/5
-        [HttpGet("{id}")]
-        public async Task<ActionResult<AppUserGetDto>> GetAppUser(string id)
-        {
-          
-            var appUser = await _userService.GetAppUserAsync(id);
-            if (appUser == null)
-            {
-                return NotFound();
-            }
-           
-
-            return Ok(appUser);
-        }
-
-        // PUT: api/AppUsers/5
-        // To protect from over posting attacks, see https://go.microsoft.com/fwlink/?linkid=2123754
-        [HttpPut]
-        public async Task<ActionResult<AppUserGetDto>> PutAppUser(string id, [FromBody] AppUserCreateDto appUser)
-        {
-            var user = await _userService.PutAppUserAsync(id, appUser);
-            if (user == null)
-            {
-                return BadRequest();
-            }
-            return Ok(user);
-        }
-
-        // POST: api/AppUsers
-        // To protect from over posting attacks, see https://go.microsoft.com/fwlink/?linkid=2123754
-        [HttpPost]
-        public async  Task<ActionResult<AppUserGetDto>> PostAppUser([FromBody] AppUserCreateDto appUser)
-        {
-
-            var user = await _userService.PostAppUserAsync(appUser);
-            if (user == null)
-            {
-                return BadRequest();
-            }
-            
-
-            return Ok(user);
-        }
-
-        [HttpGet("emailConfirmation")]
-        public async Task<ActionResult> EmailConfirmation([FromQuery] string email, [FromQuery] string token)
-        {
-            var result = await _userService.ConfirmEmailAsync(email, token);
-            if (!result)
-            {
-                return BadRequest();
-            }
-            return Ok();
-        }
-        
-        [HttpPost("banUser")]
-        public async Task<ActionResult> BanUser(string id)
-        {
-            var result = await _userService.BanUserAsync(id);
-            if (!result)
-            {
-                return NotFound();
-            }
-
-            return Ok();
-        }
-        
-        // DELETE: api/AppUsers/5
-        [HttpDelete("{id}")]
-        public async Task<IActionResult> DeleteAppUser(string id)
-        {
-            var result = await _userService.DeleteAppUserAsync(id);
-            if (!result)
-            {
-                return NotFound();
-            }
-
-            return Ok();
-        }
-
-        [HttpPost("Login")]
-        public async Task<ActionResult> Login(string userName, string password)
-        {
-            if (string.IsNullOrEmpty(userName) || string.IsNullOrEmpty(password))
-            {
-                return BadRequest("Username and password are required.");
-            }
-
-            var result = await _userService.LoginAsync(userName, password);
-            if (!result)
-            {
-                return Unauthorized("Invalid username or password.");
-            }
-
-            return Ok("Login successful");
-
-        }
-
-        [Authorize]
-        [HttpGet("Logout")]
-        public async Task<ActionResult> Logout()
-        {
-
-
-            await _userService.LogoutAsync();
-            return Ok("Logout successful.");
-        }
-        [HttpPost("forgetPassword")]
-        public async Task<ActionResult> ForgetPassword(string email)
-        {
-            var result = await _userService.ForgetPasswordAsync(email);
-            if (!result)
-            {
-                return BadRequest("User was not found");
-            }
-            return Ok("Email was sent");
-        }
-        [HttpGet("ResetPassword")]
-        public async Task<ActionResult<ResetPasswordForm>> ResetPasswordAbc([FromQuery]string email,[FromQuery] string token)
-        {
-            var restPasswordForm =await _userService.ResetPassswordAbc(email, token);
-            if (restPasswordForm==null)
-            {
-                return BadRequest("UserName or Token is not valid");
-            }
-
-            return Ok(restPasswordForm);
-        }
-        [HttpPost("ResetPasswordImp")]
-        public async Task<ActionResult> ResetPassword([FromBody]ResetPasswordForm resetPasswordForm)
-        {
-            var result = await _userService.ResetPasswordAsync(resetPasswordForm);
-            if (!result)
-            {
-                return BadRequest("UserName or Token is not valid");
-            }
-
-            return Ok("Password reset successful");
-        }
-       
+        return BadRequest("Smth went wrong");
     }
+
+    [HttpPut("UpdateProfilePicture/{userId}")]
+    public async Task<IActionResult> UpdateProfilePicture(string userId,  IFormFile file)
+    {
+        var result = await _userService.UpdateProfilePictureAsync(userId, file);
+    
+        if (result.Success)
+        {
+            return Ok("Profile picture updated successfully");
+        }
+
+        return BadRequest("Smth went wrong");
+    }
+    [HttpDelete("DeleteProfilePicture/{userId}")]
+    public async Task<IActionResult> DeleteProfilePicture(string userId)
+    {
+        var result = await _userService.DeleteProfilePictureAsync(userId);
+
+        if (result.Success)
+        {
+            return Ok("Profile picture deleted successfully");
+        }
+
+        return BadRequest("Smth went wrong");
+    }
+
+    [HttpPost("forgetPassword")]
+    public async Task<ActionResult> ForgetPassword([FromBody] string email)
+    {
+        var result = await _userService.ForgetPasswordAsync(email);
+        if (!result)
+        {
+            return BadRequest("User not found.");
+        }
+        return Ok("Email sent for password reset.");
+    }
+
+    [HttpGet("resetPassword")]
+    public async Task<ActionResult<ResetPasswordForm>> ResetPasswordAbc([FromQuery] string email, [FromQuery] string token)
+    {
+        var result = await _userService.ResetPasswordAbc(email, token);
+        if (result == null)
+        {
+            return BadRequest("Invalid email or token.");
+        }
+        return Ok(result);
+    }
+
+    [HttpPost("resetPassword")]
+    public async Task<ActionResult> ResetPassword([FromBody] ResetPasswordForm resetPasswordForm)
+    {
+        var result = await _userService.ResetPasswordAsync(resetPasswordForm);
+        if (!result)
+        {
+            return BadRequest("Password reset failed.");
+        }
+        return Ok("Password reset successful.");
+    }
+}
+
 }

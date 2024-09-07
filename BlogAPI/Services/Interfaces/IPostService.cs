@@ -1,16 +1,17 @@
 ﻿using BlogAPI.DTOs;
+using BlogAPI.HelperServices;
 
 namespace BlogAPI.Services.Interfaces;
 
 public interface IPostService
 { 
-    Task<IEnumerable<PostGetDTO>?> GetAllPostsAsync();
-    Task<PostGetDTO?> GetPostByIdAsync(long Id);
-    Task<IEnumerable<PostGetDTO>?> GetPostsByTagIdAsync(int id);
-    Task<PostGetDTO?> CreatePostAsync(PostCreateDTO postCreateDto);
-    Task<bool> UpdatePostAsync(long id, PostCreateDTO postCreateDto);
-    Task<bool> BanPostAsync(long id);
-    Task<bool> DeletePostAsync(long postId, string userID);
+    Task<ServiceResult<IEnumerable<PostGetDTO>>> GetAllPostsAsync();
+    Task<ServiceResult<PostGetDTO>> GetPostByIdAsync(long Id);
+    Task<ServiceResult<IEnumerable<PostGetDTO>>> GetPostsByTagIdAsync(int id);
+    Task<ServiceResult<PostGetDTO>> CreatePostAsync(PostCreateDTO postCreateDto);
+    Task<ServiceResult<bool>> UpdatePostAsync(long id, PostCreateDTO postCreateDto);
+    Task<ServiceResult<bool>> BanPostAsync(long id);
+    Task<ServiceResult<bool>> DeletePostAsync(long postId, string userID);
 
 
 
