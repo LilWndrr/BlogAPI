@@ -1,30 +1,25 @@
-﻿using BlogAPI.Data;
-using BlogAPI.DTOs;
+﻿using BlogAPI.DTOs;
 using BlogAPI.HelperServices;
-using BlogAPI.Mappers;
 using BlogAPI.Model;
+using BlogAPI.Repositories;
 using BlogAPI.Services.Interfaces;
-using Microsoft.EntityFrameworkCore;
 
 namespace BlogAPI.Services.Concrete;
 
 public class PostLikeService : IPostLikeService
 {
-    private readonly ApplicationContext _context;
+    private readonly IPostLikeRepository _postLikeRepository;
+    private readonly IPostRepository _postRepository;
 
-    public PostLikeService(ApplicationContext context)
+    public PostLikeService(IPostLikeRepository postLikeRepository,IPostRepository postRepository)
     {
-        _context = context;
+        _postLikeRepository = postLikeRepository;
+        _postRepository = postRepository;
     }
 
     public async Task<ServiceResult<IEnumerable<PostLikeGetDto>>> GetPostLikesByPostIdAsync(long postId)
     {
-        if (_context.PostLikes == null)
-        {
-            return ServiceResult<IEnumerable<PostLikeGetDto>>.FailureResult("PostLikes table is not available.");
-        }
-
-        var postLikes = await _context.PostLikes.Where(pl => pl.PostId == postId).ToListAsync();
+        var postLikes = await _postLikeRepository.GetPostLikesByPostIdAsync(postId);
         if (postLikes == null || !postLikes.Any())
         {
             return ServiceResult<IEnumerable<PostLikeGetDto>>.FailureResult("No likes found for the specified post.");
@@ -41,12 +36,7 @@ public class PostLikeService : IPostLikeService
 
     public async Task<ServiceResult<IEnumerable<PostLikeGetDto>>> GetUserPostLikesAsync(string userId)
     {
-        if (_context.PostLikes == null)
-        {
-            return ServiceResult<IEnumerable<PostLikeGetDto>>.FailureResult("PostLikes table is not available.");
-        }
-
-        var postLikes = await _context.PostLikes.Where(pl => pl.UserId == userId).ToListAsync();
+        var postLikes = await _postLikeRepository.GetUserPostLikesAsync(userId);
         if (postLikes == null || !postLikes.Any())
         {
             return ServiceResult<IEnumerable<PostLikeGetDto>>.FailureResult("No likes found for the specified user.");
@@ -63,9 +53,10 @@ public class PostLikeService : IPostLikeService
 
     public async Task<ServiceResult<bool>> CreatePostLikeAsync(PostLikeCreateDto postLikeCreateDto)
     {
-        if (_context.PostLikes == null || _context.Posts == null)
+        var post = await _postRepository.GetPostByIdAsync(postLikeCreateDto.PostId);
+        if (post == null)
         {
-            return ServiceResult<bool>.FailureResult("Required tables are not available.");
+            return ServiceResult<bool>.FailureResult("Post not found.");
         }
 
         var postLike = new PostLike
@@ -75,43 +66,30 @@ public class PostLikeService : IPostLikeService
             CreatedDate = DateTime.Now
         };
 
-        var post = await _context.Posts.FindAsync(postLike.PostId);
-        if (post == null)
-        {
-            return ServiceResult<bool>.FailureResult("Post not found.");
-        }
-
         post.LikeCount++;
-        _context.Posts.Update(post);
-        _context.PostLikes.Add(postLike);
-        await _context.SaveChangesAsync();
+        await _postRepository.UpdatePostAsync(post);
+        await _postLikeRepository.AddPostLikeAsync(postLike);
 
         return ServiceResult<bool>.SuccessResult(true);
     }
 
     public async Task<ServiceResult<bool>> DeletePostLikeAsync(long postId, string userId)
     {
-        if (_context.PostLikes == null || _context.Posts == null)
-        {
-            return ServiceResult<bool>.FailureResult("Required tables are not available.");
-        }
-
-        var postLike = await _context.PostLikes.FindAsync(postId, userId);
+        var postLike = await _postLikeRepository.FindPostLikeAsync(postId, userId);
         if (postLike == null)
         {
             return ServiceResult<bool>.FailureResult("Post like not found.");
         }
 
-        var post = await _context.Posts.FindAsync(postId);
+        var post = await _postRepository.GetPostByIdAsync(postId);
         if (post == null)
         {
             return ServiceResult<bool>.FailureResult("Post not found.");
         }
 
         post.LikeCount--;
-        _context.Posts.Update(post);
-        _context.PostLikes.Remove(postLike);
-        await _context.SaveChangesAsync();
+        await _postRepository.UpdatePostAsync(post);
+        await _postLikeRepository.RemovePostLikeAsync(postLike);
 
         return ServiceResult<bool>.SuccessResult(true);
     }

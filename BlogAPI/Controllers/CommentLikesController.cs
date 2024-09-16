@@ -48,7 +48,7 @@ public class CommentLikesController : ControllerBase
     [HttpPost]
     public async Task<ActionResult> PostCommentLike([FromBody] CommentLikePostDto commentLikePost)
     {
-        commentLikePost.UserId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        commentLikePost.UserId =User.FindFirst("uid")?.Value;
 
         var result = await _commentLikeService.PostCommentLikeAsync(commentLikePost);
         if (!result.Success)
@@ -63,7 +63,7 @@ public class CommentLikesController : ControllerBase
     [HttpDelete]
     public async Task<IActionResult> DeleteCommentLike(long commentId)
     {
-        var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        var userId =User.FindFirst("uid")?.Value;
 
         var result = await _commentLikeService.DeleteCommentLikeAsync(commentId, userId);
         if (!result.Success)

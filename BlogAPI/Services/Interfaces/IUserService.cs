@@ -14,7 +14,7 @@ public interface IUserService
     Task<bool> ConfirmEmailAsync(string email, string token);
     Task<bool> BanUserAsync(string id);
     Task<bool> DeleteAppUserAsync(string id);
-    Task<bool> LoginAsync(string userName, string password);
+    Task<ServiceResult<string>> LoginAsync(string userName, string password);
     Task<bool> LogoutAsync();
     Task<bool> ForgetPasswordAsync(string email);
     Task<ServiceResult<string>> UploadProfilePictureAsync(string userId, IFormFile file);

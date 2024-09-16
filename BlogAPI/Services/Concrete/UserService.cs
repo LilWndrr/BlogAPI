@@ -1,52 +1,54 @@
-﻿using AutoMapper;
-using BlogAPI.Data;
+﻿using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
+using System.Text;
+using AutoMapper;
+
 using BlogAPI.DTOs;
 using BlogAPI.HelperServices;
 using BlogAPI.Model;
+using BlogAPI.Repositories;
 using BlogAPI.Services.Interfaces;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.WebUtilities;
-using Microsoft.EntityFrameworkCore;
+
+using Microsoft.IdentityModel.Tokens;
 
 namespace BlogAPI.Services.Concrete;
 
 public class UserService : IUserService
 {
+    private readonly IUserRepository _userRepository;
     private readonly UserManager<AppUser> _userManager;
     private readonly SignInManager<AppUser> _signInManager;
-    private readonly ApplicationContext _context;
     private readonly IEmailSender _emailSender;
     private readonly IMapper _mapper;
+    private readonly IConfiguration _configuration;
 
-    public UserService(UserManager<AppUser> userManager, SignInManager<AppUser> signInManager, ApplicationContext context, IEmailSender emailSender, IMapper mapper)
+    public UserService(IUserRepository userRepository, UserManager<AppUser> userManager, SignInManager<AppUser> signInManager, IEmailSender emailSender, IMapper mapper, IConfiguration configuration)
     {
+        _userRepository = userRepository;
         _userManager = userManager;
         _signInManager = signInManager;
-        _context = context;
         _emailSender = emailSender;
         _mapper = mapper;
+        _configuration = configuration;
     }
 
     public async Task<ServiceResult<IEnumerable<AppUserGetDto>>> GetUsersAsync()
     {
-        if (_context.Users == null)
+        var users = await _userRepository.GetUsersAsync();
+        if (users == null)
         {
-            return ServiceResult<IEnumerable<AppUserGetDto>>.FailureResult("Users context is not available.");
+            return ServiceResult<IEnumerable<AppUserGetDto>>.FailureResult("Users not found.");
         }
 
-        var users = await _context.Users.Where(u => !u.IsDeleted && !u.IsBanned).ToListAsync();
         var result = _mapper.Map<IEnumerable<AppUserGetDto>>(users);
         return ServiceResult<IEnumerable<AppUserGetDto>>.SuccessResult(result);
     }
 
     public async Task<ServiceResult<AppUserGetDto>> GetAppUserAsync(string id)
     {
-        if (_context.Users == null)
-        {
-            return ServiceResult<AppUserGetDto>.FailureResult("Users context is not available.");
-        }
-
-        var user = await _userManager.FindByIdAsync(id);
+        var user = await _userRepository.GetUserByIdAsync(id);
         if (user == null)
         {
             return ServiceResult<AppUserGetDto>.FailureResult("User not found.");
@@ -56,38 +58,28 @@ public class UserService : IUserService
         return ServiceResult<AppUserGetDto>.SuccessResult(result);
     }
 
-    public async Task<ServiceResult<AppUserGetDto>> PutAppUserAsync(string id, AppUserCreateDto appUser)
+    public async Task<ServiceResult<AppUserGetDto>> PutAppUserAsync(string id, AppUserCreateDto appUserDto)
     {
-        if (_context.Users == null)
-        {
-            return ServiceResult<AppUserGetDto>.FailureResult("Users context is not available.");
-        }
-
-        var user = await _userManager.FindByIdAsync(id);
+        var user = await _userRepository.GetUserByIdAsync(id);
         if (user == null)
         {
             return ServiceResult<AppUserGetDto>.FailureResult("User not found.");
         }
 
-        _mapper.Map(appUser, user);
-        var result = await _userManager.UpdateAsync(user);
-        if (result.Succeeded)
+        _mapper.Map(appUserDto, user);
+        var isUpdated = await _userRepository.UpdateUserAsync(user);
+        if (isUpdated)
         {
-            var mappedUser = _mapper.Map<AppUserGetDto>(user);
-            return ServiceResult<AppUserGetDto>.SuccessResult(mappedUser);
+            var result = _mapper.Map<AppUserGetDto>(user);
+            return ServiceResult<AppUserGetDto>.SuccessResult(result);
         }
 
         return ServiceResult<AppUserGetDto>.FailureResult("Failed to update user.");
     }
 
-    public async Task<ServiceResult<AppUserGetDto>> PostAppUserAsync(AppUserCreateDto user)
+    public async Task<ServiceResult<AppUserGetDto>> PostAppUserAsync(AppUserCreateDto userDto)
     {
-        if (_context.Users == null)
-        {
-            return ServiceResult<AppUserGetDto>.FailureResult("Users context is not available.");
-        }
-
-        var appUser = _mapper.Map<AppUser>(user);
+        var appUser = _mapper.Map<AppUser>(userDto);
         var result = await _userManager.CreateAsync(appUser, appUser.Password);
         if (result.Succeeded)
         {
@@ -98,7 +90,7 @@ public class UserService : IUserService
                 {"email", appUser.Email}
             };
             var callback = QueryHelpers.AddQueryString("http://localhost:5231/api/AppUsers/emailConfirmation", param);
-            var message = new Message(new List<string> { user.Email }, "Email Confirmation Token", callback);
+            var message = new Message(new List<string> { userDto.Email }, "Email Confirmation Token", callback);
             await _emailSender.SendEmailAsync(message);
 
             var mappedUser = _mapper.Map<AppUserGetDto>(appUser);
@@ -110,7 +102,7 @@ public class UserService : IUserService
 
     public async Task<bool> ConfirmEmailAsync(string email, string token)
     {
-        var user = await _userManager.FindByEmailAsync(email);
+        var user = await _userRepository.GetUserByEmailAsync(email);
         if (user == null)
         {
             return false;
@@ -122,34 +114,44 @@ public class UserService : IUserService
 
     public async Task<bool> BanUserAsync(string id)
     {
-        var user = await _userManager.FindByIdAsync(id);
+        var user = await _userRepository.GetUserByIdAsync(id);
         if (user == null)
         {
             return false;
         }
 
         user.IsBanned = true;
-        var result = await _userManager.UpdateAsync(user);
-        return result.Succeeded;
+        return await _userRepository.UpdateUserAsync(user);
     }
 
     public async Task<bool> DeleteAppUserAsync(string id)
     {
-        var user = await _userManager.FindByIdAsync(id);
+        var user = await _userRepository.GetUserByIdAsync(id);
         if (user == null)
         {
             return false;
         }
 
-        user.IsDeleted = true;
-        var result = await _userManager.UpdateAsync(user);
-        return result.Succeeded;
+        return await _userRepository.DeleteUserAsync(user);
     }
 
-    public async Task<bool> LoginAsync(string userName, string password)
+    public async Task<ServiceResult<string>> LoginAsync(string userName, string password)
     {
-        var signInResult = await _signInManager.PasswordSignInAsync(userName, password, false, false);
-        return signInResult.Succeeded;
+        var appUser = await _userRepository.GetUserByUserNameAsync(userName);
+        if (appUser == null || appUser.IsDeleted)
+        {
+            return ServiceResult<string>.FailureResult("Invalid username or password.");
+        }
+
+        var signInResult = await _signInManager.CheckPasswordSignInAsync(appUser, password, false);
+        if (signInResult.Succeeded)
+        {
+            var token = await CreateJwtToken(appUser);
+            var toStringToken = new JwtSecurityTokenHandler().WriteToken(token);
+            return ServiceResult<string>.SuccessResult(toStringToken);
+        }
+
+        return ServiceResult<string>.FailureResult("Invalid username or password.");
     }
 
     public async Task<bool> LogoutAsync()
@@ -162,13 +164,13 @@ public class UserService : IUserService
     {
         if (file == null || file.Length == 0)
         {
-            return ServiceResult<string>.FailureResult("Invalid image format.") ;
+            return ServiceResult<string>.FailureResult("Invalid image format.");
         }
 
         // Define the folder path
         var folderPath = Path.Combine("wwwroot", "images");
         Directory.CreateDirectory(folderPath); // Ensure the directory exists
-        
+
         // Generate a unique filename
         var fileName = Guid.NewGuid() + Path.GetExtension(file.FileName);
         var filePath = Path.Combine(folderPath, fileName);
@@ -180,24 +182,24 @@ public class UserService : IUserService
         }
 
         // Update the user's profile picture path
-        var user = await _userManager.FindByIdAsync(userId);
+        var user = await _userRepository.GetUserByIdAsync(userId);
         if (user == null)
         {
-            return ServiceResult<string>.FailureResult("User was not found") ;
+            return ServiceResult<string>.FailureResult("User not found.");
         }
 
         user.ProfilePicturePath = Path.Combine("images", fileName);
-        await _context.SaveChangesAsync();
+        await _userRepository.UpdateUserAsync(user);
 
-        return ServiceResult<string>.SuccessResult(user.ProfilePicturePath); 
+        return ServiceResult<string>.SuccessResult(user.ProfilePicturePath);
     }
-    // Update profile picture logic
+
     public async Task<ServiceResult<string>> UpdateProfilePictureAsync(string userId, IFormFile file)
     {
-        var user = await _context.Users.FindAsync(userId);
+        var user = await _userRepository.GetUserByIdAsync(userId);
         if (user == null)
         {
-            return ServiceResult<string>.FailureResult("User not found");
+            return ServiceResult<string>.FailureResult("User not found.");
         }
 
         // Delete the current image if it exists
@@ -210,19 +212,17 @@ public class UserService : IUserService
             }
         }
 
-        // Now upload the new image (reusing upload logic)
         return await UploadProfilePictureAsync(userId, file);
     }
-        
-    public async Task<ServiceResult<bool>> DeleteProfilePictureAsync(string  userId)
+
+    public async Task<ServiceResult<bool>> DeleteProfilePictureAsync(string userId)
     {
-        var user = await _context.Users.FindAsync(userId);
+        var user = await _userRepository.GetUserByIdAsync(userId);
         if (user == null)
         {
-            return  ServiceResult<bool>.FailureResult("User not found") ;
+            return ServiceResult<bool>.FailureResult("User not found.");
         }
 
-        // Delete the image file from the file system
         if (!string.IsNullOrEmpty(user.ProfilePicturePath))
         {
             var filePath = Path.Combine("wwwroot", user.ProfilePicturePath);
@@ -231,18 +231,18 @@ public class UserService : IUserService
                 File.Delete(filePath);
             }
 
-            // Update the user to remove the profile picture reference
             user.ProfilePicturePath = null;
-            await _context.SaveChangesAsync();
+            await _userRepository.UpdateUserAsync(user);
 
             return ServiceResult<bool>.SuccessResult(true);
         }
 
-        return ServiceResult<bool>.FailureResult("No profile picture to delete");
+        return ServiceResult<bool>.FailureResult("No profile picture to delete.");
     }
+
     public async Task<bool> ForgetPasswordAsync(string email)
     {
-        var user = await _userManager.FindByEmailAsync(email);
+        var user = await _userRepository.GetUserByEmailAsync(email);
         if (user != null)
         {
             var token = await _userManager.GeneratePasswordResetTokenAsync(user);
@@ -260,8 +260,6 @@ public class UserService : IUserService
         return false;
     }
 
-
-
     public Task<ResetPasswordForm> ResetPasswordAbc(string email, string token)
     {
         return Task.FromResult(new ResetPasswordForm { Token = token, Email = email });
@@ -269,7 +267,7 @@ public class UserService : IUserService
 
     public async Task<bool> ResetPasswordAsync(ResetPasswordForm resetPasswordForm)
     {
-        var user = await _userManager.FindByEmailAsync(resetPasswordForm.Email);
+        var user = await _userRepository.GetUserByEmailAsync(resetPasswordForm.Email);
         if (user == null)
         {
             return false;
@@ -278,4 +276,33 @@ public class UserService : IUserService
         var result = await _userManager.ResetPasswordAsync(user, resetPasswordForm.Token, resetPasswordForm.Password);
         return result.Succeeded;
     }
+
+    private async Task<JwtSecurityToken> CreateJwtToken(AppUser user)
+    {
+        var userClaims = await _userManager.GetClaimsAsync(user);
+        var roles = await _userManager.GetRolesAsync(user);
+        var roleClaims = roles.Select(role => new Claim(ClaimTypes.Role, role)).ToList();
+
+        var claims = new List<Claim>
+            {
+                new Claim(JwtRegisteredClaimNames.Sub, user.UserName),
+                new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
+                new Claim("uid", user.Id)
+            }
+            .Union(userClaims)
+            .Union(roleClaims);
+
+        var symmetricSecurityKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["Jwt:Key"]));
+        var signingCredentials = new SigningCredentials(symmetricSecurityKey, SecurityAlgorithms.HmacSha256);
+
+        var token = new JwtSecurityToken(
+            issuer: _configuration["Jwt:Issuer"],
+            audience: _configuration["Jwt:Audience"],
+            claims: claims,
+            expires: DateTime.Now.AddMinutes(30),
+            signingCredentials: signingCredentials);
+
+        return token;
+    }
 }
+

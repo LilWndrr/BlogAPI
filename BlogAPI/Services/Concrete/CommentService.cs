@@ -3,6 +3,7 @@ using BlogAPI.DTOs;
 using BlogAPI.HelperServices;
 using BlogAPI.Mappers;
 using BlogAPI.Model;
+using BlogAPI.Repositories;
 using BlogAPI.Services.Interfaces;
 using Microsoft.EntityFrameworkCore;
 
@@ -10,21 +11,18 @@ namespace BlogAPI.Services.Concrete;
 
 public class CommentService : ICommentService
 {
-    private readonly ApplicationContext _context;
+    private readonly ICommentRepository _commentRepository;
+    private readonly IPostRepository _postRepository;
 
-    public CommentService(ApplicationContext context)
+    public CommentService(ICommentRepository commentRepository,IPostRepository postRepository)
     {
-        _context = context;
+        _commentRepository = commentRepository;
+        _postRepository = postRepository;
     }
 
     public async Task<ServiceResult<CommentGetDto>> GetCommentAsync(long id)
     {
-        if (_context.Comments == null)
-        {
-            return ServiceResult<CommentGetDto>.FailureResult("Comments context is not available.");
-        }
-
-        var comment = await _context.Comments.FindAsync(id);
+        var comment = await _commentRepository.GetCommentByIdAsync(id);
         if (comment == null)
         {
             return ServiceResult<CommentGetDto>.FailureResult("Comment not found.");
@@ -35,12 +33,7 @@ public class CommentService : ICommentService
 
     public async Task<ServiceResult<CommentGetDto>> PutCommentAsync(long id, CommentCreateDto commentCreateDto)
     {
-        if (_context.Comments == null)
-        {
-            return ServiceResult<CommentGetDto>.FailureResult("Comments context is not available.");
-        }
-
-        var comment = await _context.Comments.FindAsync(id);
+        var comment = await _commentRepository.GetCommentByIdAsync(id);
         if (comment == null)
         {
             return ServiceResult<CommentGetDto>.FailureResult("Comment not found.");
@@ -49,102 +42,74 @@ public class CommentService : ICommentService
         comment.Content = commentCreateDto.Content;
         comment.UpdateDateTime = DateTime.Now;
 
-        _context.Comments.Update(comment);
-        await _context.SaveChangesAsync();
-
+        await _commentRepository.UpdateCommentAsync(comment);
         return ServiceResult<CommentGetDto>.SuccessResult(comment.ToDto());
     }
 
     public async Task<ServiceResult<IEnumerable<CommentGetDto>>> GetCommentByPostIdAsync(long postId)
     {
-        if (_context.Comments == null)
-        {
-            return ServiceResult<IEnumerable<CommentGetDto>>.FailureResult("Comments context is not available.");
-        }
-
-        var comments = await _context.Comments
-            .Where(c => c.PostId == postId && c.CommentId == null)
-            .ToListAsync();
-
-        return ServiceResult<IEnumerable<CommentGetDto>>.SuccessResult(comments.Select(comment => comment.ToDto()));
+        var comments = await _commentRepository.GetCommentsByPostIdAsync(postId);
+        var commentDtos = comments.Select(comment => comment.ToDto());
+        return ServiceResult<IEnumerable<CommentGetDto>>.SuccessResult(commentDtos);
     }
 
     public async Task<ServiceResult<IEnumerable<CommentGetDto>>> GetCommentByParentIdAsync(long parentId)
     {
-        if (_context.Comments == null)
-        {
-            return ServiceResult<IEnumerable<CommentGetDto>>.FailureResult("Comments context is not available.");
-        }
-
-        var comments = await _context.Comments
-            .Where(c => c.CommentId == parentId)
-            .ToListAsync();
-
-        return ServiceResult<IEnumerable<CommentGetDto>>.SuccessResult(comments.Select(comment => comment.ToDto()));
+        var comments = await _commentRepository.GetCommentsByParentIdAsync(parentId);
+        var commentDtos = comments.Select(comment => comment.ToDto());
+        return ServiceResult<IEnumerable<CommentGetDto>>.SuccessResult(commentDtos);
     }
 
     public async Task<ServiceResult<CommentGetDto>> PostCommentAsync(CommentCreateDto commentCreateDto)
     {
-        if (_context.Comments == null)
-        {
-            return ServiceResult<CommentGetDto>.FailureResult("Comments context is not available.");
-        }
-
-        Comment comment = new Comment
+        var comment = new Comment 
         {
             Content = commentCreateDto.Content,
             CommentId = commentCreateDto.CommentId,
-            UserID = commentCreateDto.UserId
+            UserID = commentCreateDto.UserId,
+            CreatedDateTime = DateTime.Now
         };
 
-        if (commentCreateDto.CommentId != null)
+        var parentComment = await _commentRepository.GetParentCommentAsync(commentCreateDto.CommentId);
+        if (parentComment != null)
         {
-            var parentComment = await _context.Comments.FindAsync(commentCreateDto.CommentId);
-            if (parentComment != null)
-            {
-                comment.PostId = parentComment.PostId;
-                parentComment.CommentCount++;
-                _context.Comments.Update(parentComment);
-            }
+            comment.PostId = parentComment.PostId;
+            parentComment.CommentCount++;
+            await _commentRepository.UpdateCommentAsync(parentComment);
         }
         else
         {
-            comment.PostId = await _context.Posts
-                .Where(p => p.Id == comment.PostId)
-                .Select(p => p.Id)
-                .FirstOrDefaultAsync();
+            var post = await _postRepository.GetPostByIdAsync(comment.PostId);
+            if (post != null)
+            {
+                post.CommentCount++;
+                await _postRepository.UpdatePostAsync(post);
+            }
         }
 
-        var post = await _context.Posts.FindAsync(comment.PostId);
-        if (post != null)
-        {
-            post.CommentCount++;
-            _context.Posts.Update(post);
-        }
-
-        _context.Comments.Add(comment);
-        await _context.SaveChangesAsync();
-
+        await _commentRepository.AddCommentAsync(comment);
         return ServiceResult<CommentGetDto>.SuccessResult(comment.ToDto());
     }
 
     public async Task<ServiceResult<bool>> DeleteCommentAsync(long id)
     {
-        if (_context.Comments == null)
-        {
-            return ServiceResult<bool>.FailureResult("Comments context is not available.");
-        }
-
-        var comment = await _context.Comments.FindAsync(id);
+        var comment = await _commentRepository.GetCommentByIdAsync(id);
         if (comment == null)
         {
             return ServiceResult<bool>.FailureResult("Comment not found.");
         }
 
         comment.IsDeleted = true;
-        _context.Comments.Update(comment);
-        await _context.SaveChangesAsync();
+        var post = await _postRepository.GetPostByIdAsync(comment.PostId);
+        if (post == null)
+        {
+            return ServiceResult<bool>.FailureResult("Post not found.");
+        }
 
+        post.CommentCount--;
+        await _postRepository.UpdatePostAsync(post);
+        await _commentRepository.UpdateCommentAsync(comment);
+        
         return ServiceResult<bool>.SuccessResult(true);
     }
 }

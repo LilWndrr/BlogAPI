@@ -3,6 +3,7 @@ using BlogAPI.DTOs;
 using BlogAPI.HelperServices;
 using BlogAPI.Mappers;
 using BlogAPI.Model;
+using BlogAPI.Repositories;
 using BlogAPI.Services.Interfaces;
 using Microsoft.EntityFrameworkCore;
 
@@ -10,23 +11,19 @@ namespace BlogAPI.Services.Concrete;
 
 public class CommentLikeService : ICommentLikeService
 {
-    private readonly ApplicationContext _context;
+    private readonly ICommentLikeRepository _commentLikeRepository;
+    private readonly ICommentRepository _commentRepository;
+    
 
-    public CommentLikeService(ApplicationContext context)
+    public CommentLikeService(ICommentLikeRepository commentLikeRepository,ICommentRepository commentRepository)
     {
-        _context = context;
+        _commentLikeRepository = commentLikeRepository;
+        _commentRepository = commentRepository;
     }
 
     public async Task<ServiceResult<IEnumerable<CommentLikeGetDto>>> GetCommentsLikesByCommentIdAsync(long commentId)
     {
-        if (_context.CommentLikes == null)
-        {
-            return ServiceResult<IEnumerable<CommentLikeGetDto>>.FailureResult("CommentLikes context is not available.");
-        }
-
-        var commentLikes = await _context.CommentLikes
-            .Where(cl => cl.CommentId == commentId)
-            .ToListAsync();
+        var commentLikes = await _commentLikeRepository.GetCommentLikesByCommentIdAsync(commentId);
 
         return commentLikes.Any()
             ? ServiceResult<IEnumerable<CommentLikeGetDto>>.SuccessResult(commentLikes.Select(cl => cl.ToDto()))
@@ -35,14 +32,7 @@ public class CommentLikeService : ICommentLikeService
 
     public async Task<ServiceResult<IEnumerable<CommentLikeGetDto>>> GetUserCommentLikesAsync(string userId)
     {
-        if (_context.CommentLikes == null)
-        {
-            return ServiceResult<IEnumerable<CommentLikeGetDto>>.FailureResult("CommentLikes context is not available.");
-        }
-
-        var commentLikes = await _context.CommentLikes
-            .Where(cl => cl.UserID == userId)
-            .ToListAsync();
+        var commentLikes = await _commentLikeRepository.GetCommentLikesByUserIdAsync(userId);
 
         return commentLikes.Any()
             ? ServiceResult<IEnumerable<CommentLikeGetDto>>.SuccessResult(commentLikes.Select(cl => cl.ToDto()))
@@ -51,49 +41,36 @@ public class CommentLikeService : ICommentLikeService
 
     public async Task<ServiceResult<bool>> PostCommentLikeAsync(CommentLikePostDto commentLikeDto)
     {
-        if (_context.CommentLikes == null)
-        {
-            return ServiceResult<bool>.FailureResult("CommentLikes context is not available.");
-        }
+        var commentLike = commentLikeDto.ToEntity();
 
-        CommentLike commentLike = commentLikeDto.ToEntity();
-        _context.CommentLikes.Add(commentLike);
+        await _commentLikeRepository.AddCommentLikeAsync(commentLike);
 
-        var comment = await _context.Comments.FindAsync(commentLike.CommentId);
+        var comment = await _commentRepository.GetCommentByIdAsync(commentLike.CommentId);
         if (comment != null)
         {
             comment.LikesCount++;
-            _context.Comments.Update(comment);
+            await _commentRepository.UpdateCommentAsync(comment);
         }
-
-        await _context.SaveChangesAsync();
 
         return ServiceResult<bool>.SuccessResult(true);
     }
 
     public async Task<ServiceResult<bool>> DeleteCommentLikeAsync(long commentId, string userId)
     {
-        if (_context.CommentLikes == null)
-        {
-            return ServiceResult<bool>.FailureResult("CommentLikes context is not available.");
-        }
-
-        var commentLike = await _context.CommentLikes.FindAsync(commentId, userId);
+        var commentLike = await _commentLikeRepository.FindCommentLikeAsync(commentId, userId);
         if (commentLike == null)
         {
             return ServiceResult<bool>.FailureResult("Comment like not found.");
         }
 
-        var comment = await _context.Comments.FindAsync(commentLike.CommentId);
+        var comment = await _commentRepository.GetCommentByIdAsync(commentId);
         if (comment != null)
         {
             comment.LikesCount--;
-            _context.Comments.Update(comment);
+            await _commentRepository.UpdateCommentAsync(comment);
         }
 
-        _context.CommentLikes.Remove(commentLike);
-        await _context.SaveChangesAsync();
-
+        await _commentLikeRepository.RemoveCommentLikeAsync(commentLike);
         return ServiceResult<bool>.SuccessResult(true);
     }
 }

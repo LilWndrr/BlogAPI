@@ -70,7 +70,7 @@ public class CommentsController : ControllerBase
     [HttpPost]
     public async Task<ActionResult<CommentGetDto>> PostComment([FromBody] CommentCreateDto commentCreate)
     {
-        commentCreate.UserId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        commentCreate.UserId =User.FindFirst("uid")?.Value;
         var result = await _commentService.PostCommentAsync(commentCreate);
         if (!result.Success)
         {

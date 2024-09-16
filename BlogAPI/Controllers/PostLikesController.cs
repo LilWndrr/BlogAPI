@@ -48,7 +48,7 @@ namespace BlogAPI.Controllers
         [HttpPost]
         public async Task<ActionResult> PostPostLike([FromBody] PostLikeCreateDto postLikeCreateDto)
         {
-            postLikeCreateDto.UserId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            postLikeCreateDto.UserId =User.FindFirst("uid")?.Value;
 
             var result = await _postLikeService.CreatePostLikeAsync(postLikeCreateDto);
             if (!result.Success)
@@ -63,7 +63,7 @@ namespace BlogAPI.Controllers
         [HttpDelete("{postId}")]
         public async Task<IActionResult> DeletePostLike(long postId)
         {
-            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            var userId =User.FindFirst("uid")?.Value;
 
             var result = await _postLikeService.DeletePostLikeAsync(postId, userId);
             if (!result.Success)

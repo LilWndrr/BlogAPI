@@ -99,14 +99,14 @@ public class AppUsersController : ControllerBase
     }
 
     [HttpPost("login")]
-    public async Task<ActionResult> Login([FromForm] string userName, [FromForm] string password)
+    public async Task<ActionResult<string>> Login([FromForm] string userName, [FromForm] string password)
     {
         var result = await _userService.LoginAsync(userName, password);
-        if (!result)
+        if (!result.Success)
         {
             return Unauthorized("Invalid username or password.");
         }
-        return Ok("Login successful.");
+        return Ok(result.Data);
     }
 
     [Authorize]
@@ -117,9 +117,11 @@ public class AppUsersController : ControllerBase
         return Ok("Logout successful.");
     }
     [HttpPost("UploadProfilePicture")]
-    public async  Task<ActionResult> UploadProfilePictureAsync(string userId, IFormFile file)
+    
+    [Authorize]
+    public async  Task<ActionResult> UploadProfilePictureAsync( IFormFile file)
     {
-        
+        var userId = User.FindFirst("uid")?.Value;
         var result = await _userService.UploadProfilePictureAsync(userId, file);
 
         if (result.Success)

@@ -73,7 +73,7 @@ namespace BlogAPI.Controllers
         [HttpPost]
         public async Task<ActionResult<PostGetDTO>> PostPost([FromBody] PostCreateDTO postCreateDto)
         {
-            postCreateDto.UserId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            postCreateDto.UserId =User.FindFirst("uid")?.Value;
 
             var result = await _postService.CreatePostAsync(postCreateDto);
             if (!result.Success)
@@ -88,7 +88,7 @@ namespace BlogAPI.Controllers
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeletePost(long id)
         {
-            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            var userId =User.FindFirst("uid")?.Value;
 
             var result = await _postService.DeletePostAsync(id, userId);
             if (!result.Success)
