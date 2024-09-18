@@ -1,5 +1,7 @@
 ﻿using System;
+using System.Reflection;
 using BlogAPI.Model;
+using BlogAPI.Model.Interfaces;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 
@@ -30,8 +32,17 @@ namespace BlogAPI.Data
             modelBuilder.Entity<CommentLike>().HasKey(b => new { b.UserID, b.CommentId });
             modelBuilder.Entity<UserPost>().HasKey(b => new { b.AuthorId, b.PostId });
             modelBuilder.Entity<TagPost>().HasKey(b => new { b.TagId,b.PostId });
-
-            
+            //Usage of global query filter
+            foreach (var entityType in modelBuilder.Model.GetEntityTypes())
+            {
+                if (typeof(ISoftDeletable).IsAssignableFrom(entityType.ClrType))
+                {
+                    var method = typeof(ApplicationContext).GetMethod(nameof(ApplyGlobalFilter), 
+                            BindingFlags.NonPublic | BindingFlags.Static)
+                        ?.MakeGenericMethod(entityType.ClrType);
+                    method?.Invoke(null, new object[] { modelBuilder });
+                }
+            }
 
             modelBuilder.Entity<Post>()
            .HasMany(p => p.Comments)
@@ -63,7 +74,10 @@ namespace BlogAPI.Data
             base.OnModelCreating(modelBuilder);
         }
 
-           
+        private static void ApplyGlobalFilter<T>(ModelBuilder modelBuilder) where T : class, ISoftDeletable
+        {
+            modelBuilder.Entity<T>().HasQueryFilter(e => !e.IsDeleted);
+        }
         }
     }
 

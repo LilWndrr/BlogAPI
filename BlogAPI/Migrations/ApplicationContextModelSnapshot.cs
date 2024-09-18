@@ -198,6 +198,9 @@ namespace BlogAPI.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
                     b.Property<long>("LikeCount")
                         .HasColumnType("bigint");
 
@@ -212,9 +215,6 @@ namespace BlogAPI.Migrations
                         .HasColumnType("datetime2");
 
                     b.Property<bool>("isBanned")
-                        .HasColumnType("bit");
-
-                    b.Property<bool>("isDeleted")
                         .HasColumnType("bit");
 
                     b.HasKey("Id");

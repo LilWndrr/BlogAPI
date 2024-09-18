@@ -16,10 +16,12 @@ public class PostRepository : IPostRepository
         _memoryCache = memoryCache;
     }
 
+  
+
     public async Task<IEnumerable<Post>> GetAllPostsAsync()
     {
         return await _context.Posts.AsNoTracking()
-            .Where(p => !p.isDeleted && !p.isBanned)
+           
             .Include(p => p.PostLikes).ThenInclude(pl => pl.User)
             .Include(p => p.Comments).ThenInclude(c => c.User)
             .Include(p => p.Authors).ThenInclude(up => up.Author)
@@ -36,7 +38,7 @@ public class PostRepository : IPostRepository
             entry =>
             {
                 entry.SetAbsoluteExpiration(TimeSpan.FromMinutes(5));
-                return _context.Posts.AsNoTracking()
+                return _context.Posts
                     .Include(p => p.PostLikes).ThenInclude(pl => pl.User)
                     .Include(p => p.Comments).ThenInclude(c => c.User)
                     .Include(p => p.Authors).ThenInclude(up => up.Author)
@@ -57,7 +59,7 @@ public class PostRepository : IPostRepository
                 return _context.TagPosts.AsNoTracking()
                     .Where(tp => tp.TagId == tagId)
                     .Select(tp => tp.Post)
-                    .Where(p => !p.isBanned && !p.isDeleted)
+                    .Where(p => !p.isBanned)
                     .ToListAsync();;
             });
     }

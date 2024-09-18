@@ -1,9 +1,10 @@
 ﻿using System;
 using System.ComponentModel.DataAnnotations.Schema;
+using BlogAPI.Model.Interfaces;
 
 namespace BlogAPI.Model
 {
-	public class Post
+	public class Post:ISoftDeletable
 	{
 
 		public long Id { get; set; }
@@ -11,7 +12,7 @@ namespace BlogAPI.Model
 		public string Title { get; set; } = "";
 		public string HtmlContent { get; set; } = "";
 
-		public bool isDeleted { get; set; }
+		public bool IsDeleted { get; set; }
 		public bool isBanned { get; set; }
 		public DateTime PublicationDate { get; set; } = DateTime.Now;
 		public DateTime? UpdatedDate { get; set; }

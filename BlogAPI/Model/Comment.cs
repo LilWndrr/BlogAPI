@@ -2,10 +2,11 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Text.Json.Serialization;
+using BlogAPI.Model.Interfaces;
 
 namespace BlogAPI.Model
 {
-	public class Comment
+	public class Comment:ISoftDeletable
 	{
 		public long Id { get; set; }
 		[Required]

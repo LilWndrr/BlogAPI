@@ -8,6 +8,6 @@ public interface IUserRepository
     Task<AppUser?> GetUserByIdAsync(string id);
     Task<bool> UpdateUserAsync(AppUser user);
     Task<bool> DeleteUserAsync(AppUser user);
-    Task<AppUser> GetUserByEmailAsync(string email);
-    Task<AppUser> GetUserByUserNameAsync(string userName);
+    Task<AppUser?> GetUserByEmailAsync(string email);
+    Task<AppUser?> GetUserByUserNameAsync(string userName);
 }

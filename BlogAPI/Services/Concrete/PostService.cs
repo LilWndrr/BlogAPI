@@ -36,7 +36,7 @@ public class PostService : IPostService
     public async Task<ServiceResult<PostGetDTO>> GetPostByIdAsync(long id)
     {
         var post = await _postRepository.GetPostByIdAsync(id);
-        if (post == null || post.isBanned || post.isDeleted)
+        if (post == null || post.isBanned || post.IsDeleted)
         {
             return ServiceResult<PostGetDTO>.FailureResult("Post not found or is banned/deleted.");
         }
@@ -122,7 +122,7 @@ public class PostService : IPostService
             return ServiceResult<bool>.FailureResult("User is not authorized to delete this post.");
         }
 
-        post.isDeleted = true;
+        post.IsDeleted = true;
         await _postRepository.UpdatePostAsync(post);
 
         return ServiceResult<bool>.SuccessResult(true);

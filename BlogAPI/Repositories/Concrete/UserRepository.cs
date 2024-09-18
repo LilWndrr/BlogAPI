@@ -1,9 +1,7 @@
-﻿using BlogAPI.Data;
-using BlogAPI.Model;
+﻿using BlogAPI.Model;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Distributed;
-using Microsoft.Extensions.Caching.Memory;
 using Newtonsoft.Json;
 
 namespace BlogAPI.Repositories.Concrete;
@@ -12,14 +10,14 @@ public class UserRepository : IUserRepository
 {
     
     private readonly UserManager<AppUser> _userManager;
-    private readonly IMemoryCache _memoryCache;
+    
     private readonly IDistributedCache _distributedCache;
 
-    public UserRepository(UserManager<AppUser> userManager,IMemoryCache memoryCache, IDistributedCache distributedCache)
+    public UserRepository(UserManager<AppUser> userManager, IDistributedCache distributedCache)
     {
         
         _userManager = userManager;
-        _memoryCache = memoryCache;
+       
         _distributedCache = distributedCache;
     }
 
@@ -65,7 +63,7 @@ public class UserRepository : IUserRepository
         return result.Succeeded;
     }
 
-    public async Task<AppUser> GetUserByEmailAsync(string email)
+    public async Task<AppUser?> GetUserByEmailAsync(string email)
     {
         string key = $"user-{email}";
         
@@ -88,7 +86,7 @@ public class UserRepository : IUserRepository
         return appUser;
     }
 
-    public async Task<AppUser> GetUserByUserNameAsync(string userName)
+    public async Task<AppUser?> GetUserByUserNameAsync(string userName)
     {
         string key = $"user-{userName}";
         

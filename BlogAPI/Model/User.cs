@@ -1,11 +1,12 @@
 ﻿using System;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using BlogAPI.Model.Interfaces;
 using Microsoft.AspNetCore.Identity;
 
 namespace BlogAPI.Model
 {
-	public class AppUser: IdentityUser
+	public class AppUser: IdentityUser,ISoftDeletable
 	{
 
         public string Name { get; set; } = "";
