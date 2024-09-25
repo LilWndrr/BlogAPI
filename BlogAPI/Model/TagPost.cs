@@ -1,4 +1,5 @@
 ﻿using System;
+using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace BlogAPI.Model
@@ -6,7 +7,8 @@ namespace BlogAPI.Model
 	public class TagPost
 	{
 		public long  PostId { get; set; }
-		public int TagId { get; set; }
+		[Required]
+		public string TagId { get; set; } = "";
 
 		[ForeignKey(nameof(PostId))]
 		public Post? Post { get; set; }

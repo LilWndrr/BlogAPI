@@ -23,7 +23,7 @@ namespace BlogAPI.Model
 		public List<String>? CoAuhtorsIds { get; set; }
 
 		[NotMapped]
-		public List<int>? TagIds { get; set; }
+		public List<string>? TagIds { get; set; }
 
 		public List<PostLike>? PostLikes { get; set; }
 

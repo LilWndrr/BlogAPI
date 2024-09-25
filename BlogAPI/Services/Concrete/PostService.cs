@@ -4,6 +4,7 @@ using BlogAPI.HelperServices;
 using BlogAPI.Mappers;
 using BlogAPI.Model;
 using BlogAPI.Repositories;
+using BlogAPI.Repositories.Concrete;
 using BlogAPI.Services.Interfaces;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -14,11 +15,13 @@ public class PostService : IPostService
 {
     private readonly IPostRepository _postRepository;
     private readonly UserManager<AppUser> _userManager;
+    private readonly ITagRepository _tagRepository;
 
-    public PostService(IPostRepository postRepository, UserManager<AppUser> userManager)
+    public PostService(IPostRepository postRepository, UserManager<AppUser> userManager, ITagRepository tagRepository)
     {
         _postRepository = postRepository;
         _userManager = userManager;
+        _tagRepository = tagRepository;
     }
 
     public async Task<ServiceResult<IEnumerable<PostGetDTO>>> GetAllPostsAsync()
@@ -44,7 +47,7 @@ public class PostService : IPostService
         return ServiceResult<PostGetDTO>.SuccessResult(post.ToDto());
     }
 
-    public async Task<ServiceResult<IEnumerable<PostGetDTO>>> GetPostsByTagIdAsync(int tagId)
+    public async Task<ServiceResult<IEnumerable<PostGetDTO>>> GetPostsByTagIdAsync(string tagId)
     {
         var posts = await _postRepository.GetPostsByTagIdAsync(tagId);
         if (posts == null || !posts.Any())
@@ -170,10 +173,16 @@ public class PostService : IPostService
         {
             foreach (var tagId in postCreateDto.TagIds)
             {
+                
                 var tag = await _postRepository.GetTagPostAsync(tagId);
                 if (tag == null)
                 {
-                    return false;
+                    Tag newTag= new Tag
+                    {
+                        Name = tagId
+                    };
+                    await _tagRepository.AddTagAsync(newTag);
+
                 }
 
                 await _postRepository.AddTagPostAsync(new TagPost

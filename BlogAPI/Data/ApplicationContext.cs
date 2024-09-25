@@ -31,10 +31,10 @@ namespace BlogAPI.Data
             modelBuilder.Entity<PostLike>().HasKey(a => new { UserID = a.UserId, a.PostId });
             modelBuilder.Entity<CommentLike>().HasKey(b => new { b.UserID, b.CommentId });
             modelBuilder.Entity<UserPost>().HasKey(b => new { b.AuthorId, b.PostId });
-            modelBuilder.Entity<TagPost>().HasKey(b => new { b.TagId,b.PostId });
+            modelBuilder.Entity<TagPost>().HasKey(b => new { b.PostId,b.TagId });
             //Usage of global query filter
             foreach (var entityType in modelBuilder.Model.GetEntityTypes())
-            {
+            {   
                 if (typeof(ISoftDeletable).IsAssignableFrom(entityType.ClrType))
                 {
                     var method = typeof(ApplicationContext).GetMethod(nameof(ApplyGlobalFilter), 

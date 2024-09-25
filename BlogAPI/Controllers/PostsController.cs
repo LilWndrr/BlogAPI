@@ -45,7 +45,7 @@ namespace BlogAPI.Controllers
 
         // GET: api/Posts/getPostByTag
         [HttpGet("getPostByTag")]
-        public async Task<ActionResult<IEnumerable<PostGetDTO>>> GetPostByTag(int id)
+        public async Task<ActionResult<IEnumerable<PostGetDTO>>> GetPostByTag(string  id)
         {
             var result = await _postService.GetPostsByTagIdAsync(id);
             if (!result.Success)

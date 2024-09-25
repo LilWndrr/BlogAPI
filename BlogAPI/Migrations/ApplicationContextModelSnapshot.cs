@@ -242,32 +242,25 @@ namespace BlogAPI.Migrations
 
             modelBuilder.Entity("BlogAPI.Model.Tag", b =>
                 {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"), 1L, 1);
-
                     b.Property<string>("Name")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("nvarchar(450)");
 
-                    b.HasKey("Id");
+                    b.HasKey("Name");
 
                     b.ToTable("Tags");
                 });
 
             modelBuilder.Entity("BlogAPI.Model.TagPost", b =>
                 {
-                    b.Property<int>("TagId")
-                        .HasColumnType("int");
-
                     b.Property<long>("PostId")
                         .HasColumnType("bigint");
 
-                    b.HasKey("TagId", "PostId");
+                    b.Property<string>("TagId")
+                        .HasColumnType("nvarchar(450)");
 
-                    b.HasIndex("PostId");
+                    b.HasKey("PostId", "TagId");
+
+                    b.HasIndex("TagId");
 
                     b.ToTable("TagPosts");
                 });

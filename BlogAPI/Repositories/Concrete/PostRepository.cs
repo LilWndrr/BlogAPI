@@ -47,7 +47,7 @@ public class PostRepository : IPostRepository
             });
     }
 
-    public async Task<IEnumerable<Post>> GetPostsByTagIdAsync(int tagId)
+    public async Task<IEnumerable<Post>> GetPostsByTagIdAsync(string tagId)
     {
         
         string key = $"post-{tagId}";
@@ -95,7 +95,7 @@ public class PostRepository : IPostRepository
         await _context.SaveChangesAsync();
     }
 
-    public async Task<Tag> GetTagPostAsync(int tagId)
+    public async Task<Tag> GetTagPostAsync(string tagId)
     {
         return await _context.Tags.FindAsync(tagId);
     }

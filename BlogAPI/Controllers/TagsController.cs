@@ -59,7 +59,7 @@ namespace BlogAPI.Controllers
           _context.Tags.Add(tag);
           await _context.SaveChangesAsync();
 
-          return CreatedAtAction("GetTag", new { id = tag.Id }, tag);
+          return CreatedAtAction("GetTag", new { id = tag.Name }, tag);
         }
 
       

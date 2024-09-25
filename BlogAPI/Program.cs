@@ -96,7 +96,8 @@ public class Program
        builder.Services.AddScoped<IPostRepository, PostRepository>();
        builder.Services.AddScoped<IPostLikeRepository, PostLikeRepository>();
        builder.Services.AddScoped<ICommentRepository, CommentRepository>();
-       builder.Services.AddScoped<ICommentLikeRepository, CommentLikeRepository>(); 
+       builder.Services.AddScoped<ICommentLikeRepository, CommentLikeRepository>();
+       builder.Services.AddScoped<ITagRepository, TagRepository>();
        //Scrutor
        //builder.Services.Decorate<IUserRepository, UserRepository>();
         

@@ -53,7 +53,7 @@ namespace BlogAPI.Controllers
         // PUT: api/TagPosts/5
         // To protect from overposting attacks, see https://go.microsoft.com/fwlink/?linkid=2123754
         [HttpPut("{id}")]
-        public async Task<IActionResult> PutTagPost(int id, TagPost tagPost)
+        public async Task<IActionResult> PutTagPost(string id, TagPost tagPost)
         {
             if (id != tagPost.TagId)
             {
@@ -130,7 +130,7 @@ namespace BlogAPI.Controllers
             return NoContent();
         }
 
-        private bool TagPostExists(int id)
+        private bool TagPostExists(string id)
         {
             return (_context.TagPosts?.Any(e => e.TagId == id)).GetValueOrDefault();
         }

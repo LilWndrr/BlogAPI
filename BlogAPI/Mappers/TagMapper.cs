@@ -10,7 +10,7 @@ public static class TagMapper
     {
         return new TagGetDto
         {
-            ID = tag.Id,
+           
             Name = tag.Name
         };
     }
@@ -20,7 +20,7 @@ public static class TagMapper
     {
         return new Tag
         {
-            Id = tagGetDto.ID,
+            
             Name = tagGetDto.Name
         };
     }
